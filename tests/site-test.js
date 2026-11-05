@@ -71,10 +71,11 @@ function makeBackend() {
   return b;
 }
 
-function open({ backend, configured = true, ls = {}, noLib = false }) {
+function open({ backend, configured = true, ls = {}, noLib = false, langs = null }) {
   const dom = new JSDOM(html, {
     runScripts: 'dangerously', url: 'https://example.com/', pretendToBeVisual: true,
     beforeParse(w) {
+      if (langs) Object.defineProperty(w.navigator, 'languages', { value: langs, configurable: true });
       Object.entries(ls).forEach(([k, v]) => w.localStorage.setItem(k, v));
       if (configured) w.BILLS_CONFIG = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_KEY: 'sb_publishable_test' };
       if (configured && !noLib) w.supabase = { createClient: () => backend.client() };
@@ -238,6 +239,83 @@ function open({ backend, configured = true, ls = {}, noLib = false }) {
   p.$('content').querySelector('[data-act="import"]').click();
   ok('I: both bills copied into her account', await until(() => b2.rows.filter(r => r.user_id === 'u_anaexampletest' && /^bold/.test(r.id)).length === 2));
   ok('I: device copy removed afterwards', await until(() => !p.lsAll()['mybills.v1']));
+  p.close();
+
+  // ---------- J. Spanish: auto-detect, the language button, remembered choice, and no English left behind
+  const LEFT = /\b(Overdue|Due (today|tomorrow|in)|Next 7 days|Later|Paid|Add a Bill|Sign out|Signed in|bills?\b|Nothing due|caught up|Never|Every (week|month|year|2 weeks)|Cancel|Save|Delete|Email Me|Sign In|Undo|Left this month)\b/;
+  const b3 = makeBackend();
+  p = open({ backend: b3, langs: ['es-US', 'en'] });
+  ok('J: phone set to Spanish => sign-in screen opens in Spanish', await until(() => !p.$('auth').hidden) && /Enviarme un código/.test(p.$('a-send').textContent) && p.doc.documentElement.lang === 'es', p.$('a-send').textContent);
+  ok('J: button names the other language', /English/.test(p.doc.querySelector('#auth .lang-btn').textContent));
+  ok('J: placeholder is Spanish', p.$('a-email').getAttribute('placeholder') === 'nombre@ejemplo.com');
+  ok('J: nothing English left on the sign-in screen', !/Email Me|Sign In|different email/.test(p.$('auth').textContent), p.$('auth').textContent.replace(/\s+/g, ' ').slice(0, 200));
+  p.$('a-email').value = 'nope'; p.submit('auth-email-form');
+  ok('J: bad email error is Spanish', /Escribe tu correo/.test(p.$('a-error').textContent), p.$('a-error').textContent);
+  p.doc.querySelector('#auth .lang-btn').click();
+  ok('J: tapping the button switches the sign-in screen to English, error included', /Email Me a Code/.test(p.$('a-send').textContent) && /Enter your email address/.test(p.$('a-error').textContent) && p.doc.documentElement.lang === 'en');
+  ok('J: choice remembered on this phone', p.lsAll()['mybills.lang'] === 'en');
+  p.doc.querySelector('#auth .lang-btn').click();
+  ok('J: and back to Spanish', /Escribe tu correo/.test(p.$('a-error').textContent) && p.lsAll()['mybills.lang'] === 'es');
+  p.$('a-email').value = 'sofia@example.test'; p.submit('auth-email-form');
+  await until(() => !p.$('auth-code-form').hidden);
+  ok('J: code step: sent text and resend countdown in Spanish', /Enviamos un código de 6 dígitos a sofia@example\.test/.test(p.$('a-sent').textContent) && /Enviar un código nuevo \(\d+\)/.test(p.$('a-resend').textContent), p.$('a-resend').textContent);
+  p.$('a-code').value = '000000'; p.submit('auth-code-form');
+  ok('J: wrong code message is Spanish', await until(() => /Ese código no funcionó/.test(p.$('a-code-error').textContent)), p.$('a-code-error').textContent);
+  p.$('a-code').value = '123456'; p.submit('auth-code-form');
+  await until(() => p.$('auth').hidden && !p.doc.querySelector('.app').hidden);
+  ok('J: signed in => asks for her name in Spanish', await until(() => !p.$('name-scrim').hidden) && /Tu nombre/.test(p.$('name-title').textContent));
+  p.$('f-uname').value = 'Sofía'; p.submit('name-form');
+  ok('J: title reads “Cuentas de Sofía”', await until(() => p.$('title-text').textContent === 'Cuentas de Sofía'), p.$('title-text').textContent);
+  ok('J: tab/home-screen name is Spanish', p.doc.title === 'Cuentas');
+  ok('J: empty state in Spanish', /Aún no hay cuentas/.test(p.$('content').textContent) && /Agregar una cuenta/.test(p.$('add-btn').textContent));
+  const today = new Date(), ymdOf = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const plus = n => { const d = new Date(); d.setDate(d.getDate() + n); return ymdOf(d); };
+  p.fillBill('Luz', 'abc', plus(2));
+  ok('J: a bad amount is rejected with a Spanish message', await until(() => !p.$('f-error').hidden) && /Escribe el monto con números/.test(p.$('f-error').textContent), p.$('f-error').textContent);
+  p.$('f-amount').value = '94,50'; p.submit('bill-form');   // decimal comma, as written in Costa Rica
+  ok('J: bill saved (Spanish), shows “Vence en 2 días” and the repeat label', await until(() => /Luz/.test(p.$('content').textContent)) && /Vence en 2 días/.test(p.$('content').textContent) && /Mensual/.test(p.$('content').textContent), p.$('content').textContent.replace(/\s+/g, ' '));
+  ok('J: “94,50” was read as $94.50 (not $9,450)', /\$94\.50/.test(p.$('content').textContent) && !/9,450/.test(p.$('content').textContent) && b3.rows.some(r => r.data && r.data.name === 'Luz' && r.data.amount === 94.5), JSON.stringify(b3.rows.map(r => r.data && r.data.amount)));
+  ok('J: group heading and counts in Spanish', /Próximos 7 días/.test(p.$('content').textContent) && /1 cuenta(?!s)/.test(p.$('content').textContent));
+  ok('J: date line is capitalised Spanish', /^[A-ZÁÉÍÓÚ][a-záéíóú]+,? /.test(p.$('today-line').textContent), p.$('today-line').textContent);
+  ok('J: header button names English', /English/.test(p.doc.querySelector('.date-row .lang-btn').textContent));
+  const stored = b3.rows.find(r => r.data && r.data.name === 'Luz');
+  ok('J: stored data has no language in it (names stay as typed)', stored && !/Vence|Mensual|días/.test(JSON.stringify(stored.data)), JSON.stringify(stored && stored.data));
+  p.doc.querySelector('.date-row .lang-btn').click();
+  ok('J: switching in the app flips the list to English at once', /Due in 2 days/.test(p.$('content').textContent) && /Monthly/.test(p.$('content').textContent) && /Add a Bill/.test(p.$('add-btn').textContent) && p.$('title-text').textContent === 'Sofía’s Bills', p.$('title-text').textContent);
+  p.doc.querySelector('.date-row .lang-btn').click();
+  ok('J: and back; nothing English left in the list screen', !LEFT.test(p.$('content').textContent.replace(/Luz|Streaming/g, '')) && !LEFT.test(p.$('add-btn').textContent) , p.$('content').textContent.replace(/\s+/g, ' '));
+  // edit sheet + delete confirm in Spanish
+  p.$('content').querySelector('[data-act="edit"]').click();
+  await until(() => !p.$('bill-scrim').hidden);
+  ok('J: edit sheet in Spanish (title, hint, repeat options)', /Editar cuenta/.test(p.$('bill-title').textContent) && /¿No sabes el monto exacto\?/.test(p.$('f-hint').textContent) && /Cada mes/.test(p.$('f-repeat').textContent), p.$('bill-title').textContent + ' | ' + p.$('f-repeat').textContent);
+  p.$('f-name').value = ''; p.submit('bill-form');
+  ok('J: empty name error in Spanish', /Escribe un nombre/.test(p.$('f-error').textContent));
+  p.$('del-start').click();
+  ok('J: delete confirm in Spanish', /¿Eliminar esta cuenta\?/.test(p.$('bill-scrim').textContent) && /Conservar/.test(p.$('del-no').textContent));
+  p.$('del-yes').click();
+  ok('J: delete toast in Spanish with Undo → Deshacer', await until(() => /Se eliminó Luz/.test(p.doc.body.textContent) && /Deshacer/.test(p.doc.body.textContent)));
+  p.close();
+
+  // saved choice wins over the phone's language, and the next visit keeps it
+  p = open({ backend: b3, langs: ['en-US'], ls: { 'mybills.lang': 'es' } });
+  await until(() => p.$('auth').hidden && !p.doc.querySelector('.app').hidden);
+  ok('J: saved Spanish beats an English phone', await until(() => /Agregar una cuenta/.test(p.$('add-btn').textContent)));
+  ok('J: footer shows signed-in text in Spanish', await until(() => /Sesión iniciada como sofia@example\.test/.test(p.$('content').textContent) && /Cerrar sesión/.test(p.$('content').textContent)), p.$('content').textContent.replace(/\s+/g, ' ').slice(-200));
+  p.close();
+  p = open({ backend: makeBackend(), langs: ['es-MX'], ls: { 'mybills.lang': 'en' } });
+  ok('J: saved English beats a Spanish phone', await until(() => !p.$('auth').hidden) && /Email Me a Code/.test(p.$('a-send').textContent));
+  p.close();
+  p = open({ backend: makeBackend(), langs: ['fr-FR', 'es'] });
+  ok('J: only the phone’s first language counts (French first => English)', await until(() => !p.$('auth').hidden) && /Email Me a Code/.test(p.$('a-send').textContent));
+  p.close();
+
+  // examples + this-phone-only mode in Spanish
+  p = open({ backend: makeBackend(), configured: false, langs: ['es'] });
+  await until(() => !p.$('name-scrim').hidden || p.$('title-text').textContent);
+  ok('J: local mode: footer + empty state in Spanish', await until(() => /guardan solo en este teléfono/.test(p.$('content').textContent)) && /Aún no hay cuentas/.test(p.$('content').textContent));
+  p.$('content').querySelector('[data-act="examples"]').click();
+  ok('J: example bills are created in Spanish', await until(() => /Teléfono/.test(p.$('content').textContent)) && /Alquiler/.test(p.$('content').textContent) && /Estas son cuentas de ejemplo/.test(p.$('content').textContent), p.$('content').textContent.replace(/\s+/g, ' ').slice(0, 300));
+  ok('J: nothing English left (examples screen)', !LEFT.test(p.$('content').textContent.replace(/Streaming/g, '')), (p.$('content').textContent.match(LEFT) || [''])[0]);
   p.close();
 
   process.exit(failed ? 1 : 0);
