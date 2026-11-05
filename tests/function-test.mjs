@@ -103,6 +103,22 @@ ok('prompt has today’s date, the rules and the pasted text', /Today is 2026-11
 ok('one slot taken for this person using the secret key, with the limits', state.rpcCalls.length === 1 && state.rpcCalls[0][1].p_user === 'u1' && state.rpcCalls[0][1].p_user_limit === 15 && state.rpcCalls[0][1].p_global_limit === 300 && state.rpcCalls[0][2] === 'sb_secret_TESTONLY');
 ok('CORS headers on the answer', r.headers.get('Access-Control-Allow-Origin') === '*' && r.headers.get('Cache-Control') === 'no-store');
 
+// colones and dollars
+ok('the tool asks for each bill’s currency (USD, CRC or none)', JSON.stringify(c.body.tools[0].input_schema.properties.bills.items.properties.currency.enum) === JSON.stringify(['USD', 'CRC', null]) && c.body.tools[0].input_schema.properties.bills.items.required.includes('currency'));
+ok('without a currency in the request, the prompt says the list is in US dollars', /keeps their list in US dollars/.test(userText) && !/colones \(CRC\)\. An amount/.test(userText) && /Never convert an amount/.test(userText));
+reset();
+r = await call({ ...good, currency: 'CRC', lang: 'es', text: 'Recibo ICE: monto a pagar ₡24.750,00, vence el 12 de noviembre.' });
+const crcText = anthropic.calls[0].body.messages[0].content.find(b => b.type === 'text').text;
+ok('a colones list: the prompt explains 25.000 means twenty-five thousand and names the usual Costa Rican billers', r.status === 200 && /Costa Rican colones/.test(crcText) && /25\.000 is twenty-five thousand/.test(crcText) && /ICE, CNFL/.test(crcText) && /AyA/.test(crcText) && /SINPE/.test(crcText) && !/keeps their list in US dollars/.test(crcText));
+reset();
+r = await call({ ...good, currency: 'EUR' });
+ok('an unknown currency in the request falls back to dollars', r.status === 200 && /keeps their list in US dollars/.test(anthropic.calls[0].body.messages[0].content.find(b => b.type === 'text').text));
+reset(); anthropic.json = toolReply([{ kind: 'bill', name: 'ICE Luz', amount: 24750, currency: 'CRC', date: '2026-11-12', repeat: 'monthly' }, { kind: 'bill', name: 'Netflix', amount: 15.99, currency: 'USD', date: '2026-11-13', repeat: 'monthly' }, { kind: 'bill', name: 'Euro Co', amount: 5, currency: 'EUR', date: '2026-11-14', repeat: 'none' }, { kind: 'bill', name: 'Old Style', amount: 7, date: '2026-11-15', repeat: 'none' }, { kind: 'bill', name: 'Huge', amount: 250000000, currency: 'CRC', date: '2026-11-16', repeat: 'none' }, { kind: 'bill', name: 'Absurd', amount: 5e9, currency: 'CRC', date: '2026-11-16', repeat: 'none' }]);
+r = await call({ ...good, currency: 'CRC' });
+ok('each bill comes back with its currency; unknown or missing becomes null', r.json.bills[0].currency === 'CRC' && r.json.bills[1].currency === 'USD' && r.json.bills[2].currency === null && r.json.bills[3].currency === null, JSON.stringify(r.json.bills.map(b => b.currency)));
+ok('colones-sized amounts are kept (up to hundreds of millions); absurd ones dropped', r.json.bills[0].amount === 24750 && r.json.bills[4].amount === 250000000 && r.json.bills[5].amount === null, JSON.stringify(r.json.bills.map(b => b.amount)));
+reset();
+
 // images (+ Spanish)
 reset();
 r = await call({ today: '2026-11-05', lang: 'es', images: [{ media_type: 'image/jpeg', data: JPEG }, { media_type: 'image/png', data: JPEG }] });

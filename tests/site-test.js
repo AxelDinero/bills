@@ -12,12 +12,15 @@ const ok = (name, cond, extra) => { console.log((cond ? 'PASS ' : 'FAIL ') + nam
 // ---------- fake Supabase backend (shared by every "page load", like the real server)
 function makeBackend() {
   const b = {
-    rows: [], session: null, codes: {}, log: [], failWrites: false, sendError: null, listeners: [],
+    rows: [], session: null, codes: {}, log: [], failWrites: false, sendError: null, listeners: [], sessionFails: 0, sessionError: null, anonFallback: false,
     fnCalls: [], fnReply: { data: { bills: [] }, error: null }, fnGate: null,
     userId: email => 'u_' + email.replace(/[^a-z]/g, ''),
     client() {
       const auth = {
-        getSession: async () => ({ data: { session: b.session }, error: null }),
+        getSession: async () => {
+          if (b.sessionFails > 0) { b.sessionFails--; return { data: { session: null }, error: b.sessionError || { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 } }; }
+          return { data: { session: b.session }, error: null };
+        },
         onAuthStateChange: cb => { b.listeners.push(cb); return { data: { subscription: { unsubscribe() {} } } }; },
         signInWithOtp: async arg => {
           b.log.push(['signInWithOtp', arg.email, JSON.stringify(arg.options)]);
@@ -46,6 +49,7 @@ function makeBackend() {
         async function run() {
           await sleep(5);
           const me = b.session && b.session.user.id;
+          if (!me && b.anonFallback && q.op === 'select') return { data: [], error: null };   // what the real service does when a request goes out without a login
           if (!me) return { data: null, error: { message: 'permission denied for table docs' } };
           const matches = r => r.user_id === me && q.eq.every(([c, v]) => r[c] === v);
           if (q.op === 'select') return { data: b.rows.filter(matches).map(r => ({ id: r.id, data: JSON.parse(JSON.stringify(r.data)) })), error: null };
@@ -80,10 +84,12 @@ function makeBackend() {
   return b;
 }
 
-function open({ backend, configured = true, ls = {}, noLib = false, langs = null }) {
+function open({ backend, configured = true, ls = {}, noLib = false, langs = null, ua = null, standalone = false }) {
   const dom = new JSDOM(html, {
     runScripts: 'dangerously', url: 'https://example.com/', pretendToBeVisual: true,
     beforeParse(w) {
+      if (ua) Object.defineProperty(w.navigator, 'userAgent', { value: ua, configurable: true });
+      if (standalone) Object.defineProperty(w.navigator, 'standalone', { value: true, configurable: true });
       if (langs) Object.defineProperty(w.navigator, 'languages', { value: langs, configurable: true });
       Object.entries(ls).forEach(([k, v]) => w.localStorage.setItem(k, v));
       if (configured) w.BILLS_CONFIG = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_KEY: 'sb_publishable_test' };
@@ -259,12 +265,12 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   ok('J: placeholder is Spanish', p.$('a-email').getAttribute('placeholder') === 'nombre@ejemplo.com');
   ok('J: nothing English left on the sign-in screen', !/Email Me|Sign In|different email/.test(p.$('auth').textContent), p.$('auth').textContent.replace(/\s+/g, ' ').slice(0, 200));
   p.$('a-email').value = 'nope'; p.submit('auth-email-form');
-  ok('J: bad email error is Spanish', /Escribe tu correo/.test(p.$('a-error').textContent), p.$('a-error').textContent);
+  ok('J: bad email error is Spanish', /Escriba su correo/.test(p.$('a-error').textContent), p.$('a-error').textContent);
   p.doc.querySelector('#auth .lang-btn').click();
   ok('J: tapping the button switches the sign-in screen to English, error included', /Email Me a Code/.test(p.$('a-send').textContent) && /Enter your email address/.test(p.$('a-error').textContent) && p.doc.documentElement.lang === 'en');
   ok('J: choice remembered on this phone', p.lsAll()['mybills.lang'] === 'en');
   p.doc.querySelector('#auth .lang-btn').click();
-  ok('J: and back to Spanish', /Escribe tu correo/.test(p.$('a-error').textContent) && p.lsAll()['mybills.lang'] === 'es');
+  ok('J: and back to Spanish', /Escriba su correo/.test(p.$('a-error').textContent) && p.lsAll()['mybills.lang'] === 'es');
   p.$('a-email').value = 'sofia@example.test'; p.submit('auth-email-form');
   await until(() => !p.$('auth-code-form').hidden);
   ok('J: code step: sent text and resend countdown in Spanish', /Enviamos un código de 6 dígitos a sofia@example\.test/.test(p.$('a-sent').textContent) && /Enviar un código nuevo \(\d+\)/.test(p.$('a-resend').textContent), p.$('a-resend').textContent);
@@ -272,19 +278,19 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   ok('J: wrong code message is Spanish', await until(() => /Ese código no funcionó/.test(p.$('a-code-error').textContent)), p.$('a-code-error').textContent);
   p.$('a-code').value = '123456'; p.submit('auth-code-form');
   await until(() => p.$('auth').hidden && !p.doc.querySelector('.app').hidden);
-  ok('J: signed in => asks for her name in Spanish', await until(() => !p.$('name-scrim').hidden) && /Tu nombre/.test(p.$('name-title').textContent));
+  ok('J: signed in => asks for her name in Spanish', await until(() => !p.$('name-scrim').hidden) && /Ajustes/.test(p.$('name-title').textContent));
   p.$('f-uname').value = 'Sofía'; p.submit('name-form');
-  ok('J: title reads “Cuentas de Sofía”', await until(() => p.$('title-text').textContent === 'Cuentas de Sofía'), p.$('title-text').textContent);
-  ok('J: tab/home-screen name is Spanish', p.doc.title === 'Cuentas');
-  ok('J: empty state in Spanish', /Aún no hay cuentas/.test(p.$('content').textContent) && /Agregar una cuenta/.test(p.$('add-btn').textContent));
+  ok('J: title reads “Facturas de Sofía”', await until(() => p.$('title-text').textContent === 'Facturas de Sofía'), p.$('title-text').textContent);
+  ok('J: tab/home-screen name is Spanish', p.doc.title === 'Facturas');
+  ok('J: empty state in Spanish', /Aún no hay facturas/.test(p.$('content').textContent) && /Agregar una factura/.test(p.$('add-btn').textContent));
   const today = new Date(), ymdOf = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const plus = n => { const d = new Date(); d.setDate(d.getDate() + n); return ymdOf(d); };
   p.fillBill('Luz', 'abc', plus(2));
-  ok('J: a bad amount is rejected with a Spanish message', await until(() => !p.$('f-error').hidden) && /Escribe el monto con números/.test(p.$('f-error').textContent), p.$('f-error').textContent);
+  ok('J: a bad amount is rejected with a Spanish message', await until(() => !p.$('f-error').hidden) && /Escriba el monto con números/.test(p.$('f-error').textContent), p.$('f-error').textContent);
   p.$('f-amount').value = '94,50'; p.submit('bill-form');   // decimal comma, as written in Costa Rica
   ok('J: bill saved (Spanish), shows “Vence en 2 días” and the repeat label', await until(() => /Luz/.test(p.$('content').textContent)) && /Vence en 2 días/.test(p.$('content').textContent) && /Mensual/.test(p.$('content').textContent), p.$('content').textContent.replace(/\s+/g, ' '));
-  ok('J: “94,50” was read as $94.50 (not $9,450)', /\$94\.50/.test(p.$('content').textContent) && !/9,450/.test(p.$('content').textContent) && b3.rows.some(r => r.data && r.data.name === 'Luz' && r.data.amount === 94.5), JSON.stringify(b3.rows.map(r => r.data && r.data.amount)));
-  ok('J: group heading and counts in Spanish', /Próximos 7 días/.test(p.$('content').textContent) && /1 cuenta(?!s)/.test(p.$('content').textContent));
+  ok('J: “94,50” was read as $94.50 (not $9,450)', /\$94,50/.test(p.$('content').textContent) && !/\$9[^0-9]?450/.test(p.$('content').textContent) && b3.rows.some(r => r.data && r.data.name === 'Luz' && r.data.amount === 94.5), JSON.stringify(b3.rows.map(r => r.data && r.data.amount)));
+  ok('J: group heading and counts in Spanish', /Próximos 7 días/.test(p.$('content').textContent) && /1 factura(?!s)/.test(p.$('content').textContent));
   ok('J: date line is capitalised Spanish', /^[A-ZÁÉÍÓÚ][a-záéíóú]+,? /.test(p.$('today-line').textContent), p.$('today-line').textContent);
   ok('J: header button names English', /English/.test(p.doc.querySelector('.date-row .lang-btn').textContent));
   const stored = b3.rows.find(r => r.data && r.data.name === 'Luz');
@@ -296,11 +302,11 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   // edit sheet + delete confirm in Spanish
   p.$('content').querySelector('[data-act="edit"]').click();
   await until(() => !p.$('bill-scrim').hidden);
-  ok('J: edit sheet in Spanish (title, hint, repeat options)', /Editar cuenta/.test(p.$('bill-title').textContent) && /¿No sabes el monto exacto\?/.test(p.$('f-hint').textContent) && /Cada mes/.test(p.$('f-repeat').textContent), p.$('bill-title').textContent + ' | ' + p.$('f-repeat').textContent);
+  ok('J: edit sheet in Spanish (title, hint, repeat options)', /Editar factura/.test(p.$('bill-title').textContent) && /¿No sabe el monto exacto\?/.test(p.$('f-hint').textContent) && /Cada mes/.test(p.$('f-repeat').textContent), p.$('bill-title').textContent + ' | ' + p.$('f-repeat').textContent);
   p.$('f-name').value = ''; p.submit('bill-form');
-  ok('J: empty name error in Spanish', /Escribe un nombre/.test(p.$('f-error').textContent));
+  ok('J: empty name error in Spanish', /Escriba un nombre/.test(p.$('f-error').textContent));
   p.$('del-start').click();
-  ok('J: delete confirm in Spanish', /¿Eliminar esta cuenta\?/.test(p.$('bill-scrim').textContent) && /Conservar/.test(p.$('del-no').textContent));
+  ok('J: delete confirm in Spanish', /¿Eliminar esta factura\?/.test(p.$('bill-scrim').textContent) && /Conservar/.test(p.$('del-no').textContent));
   p.$('del-yes').click();
   ok('J: delete toast in Spanish with Undo → Deshacer', await until(() => /Se eliminó Luz/.test(p.doc.body.textContent) && /Deshacer/.test(p.doc.body.textContent)));
   p.close();
@@ -308,7 +314,7 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   // saved choice wins over the phone's language, and the next visit keeps it
   p = open({ backend: b3, langs: ['en-US'], ls: { 'mybills.lang': 'es' } });
   await until(() => p.$('auth').hidden && !p.doc.querySelector('.app').hidden);
-  ok('J: saved Spanish beats an English phone', await until(() => /Agregar una cuenta/.test(p.$('add-btn').textContent)));
+  ok('J: saved Spanish beats an English phone', await until(() => /Agregar una factura/.test(p.$('add-btn').textContent)));
   ok('J: footer shows signed-in text in Spanish', await until(() => /Sesión iniciada como sofia@example\.test/.test(p.$('content').textContent) && /Cerrar sesión/.test(p.$('content').textContent)), p.$('content').textContent.replace(/\s+/g, ' ').slice(-200));
   p.close();
   p = open({ backend: makeBackend(), langs: ['es-MX'], ls: { 'mybills.lang': 'en' } });
@@ -321,9 +327,9 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   // examples + this-phone-only mode in Spanish
   p = open({ backend: makeBackend(), configured: false, langs: ['es'] });
   await until(() => !p.$('name-scrim').hidden || p.$('title-text').textContent);
-  ok('J: local mode: footer + empty state in Spanish', await until(() => /guardan solo en este teléfono/.test(p.$('content').textContent)) && /Aún no hay cuentas/.test(p.$('content').textContent));
+  ok('J: local mode: footer + empty state in Spanish', await until(() => /guardan solo en este celular/.test(p.$('content').textContent)) && /Aún no hay facturas/.test(p.$('content').textContent));
   p.$('content').querySelector('[data-act="examples"]').click();
-  ok('J: example bills are created in Spanish', await until(() => /Teléfono/.test(p.$('content').textContent)) && /Alquiler/.test(p.$('content').textContent) && /Estas son cuentas de ejemplo/.test(p.$('content').textContent), p.$('content').textContent.replace(/\s+/g, ' ').slice(0, 300));
+  ok('J: example bills are created in Spanish', await until(() => /Teléfono/.test(p.$('content').textContent)) && /Alquiler/.test(p.$('content').textContent) && /Estas son facturas de ejemplo/.test(p.$('content').textContent), p.$('content').textContent.replace(/\s+/g, ' ').slice(0, 300));
   ok('J: nothing English left (examples screen)', !LEFT.test(p.$('content').textContent.replace(/Streaming/g, '')), (p.$('content').textContent.match(LEFT) || [''])[0]);
   p.close();
 
@@ -455,7 +461,7 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   p.doc.querySelector('.date-row .lang-btn').click();
   ok('K: Spanish: the button says Agregar desde correo', /Agregar desde correo/.test(p.$('scan-btn').textContent));
   openScanSheet();
-  ok('K: Spanish: sheet text', /Agregar desde correo/.test(p.$('scan-title').textContent) && /Elegir captura/.test(p.$('scan-pick').textContent) && /Tomar foto/.test(p.$('scan-cam').textContent) && /Buscar cuentas/.test(p.$('scan-go').textContent) && /^Pega aquí/.test(p.$('scan-text').getAttribute('placeholder')) && /Texto del correo/.test(p.doc.querySelector('label[for="scan-text"]').textContent));
+  ok('K: Spanish: sheet text', /Agregar desde correo/.test(p.$('scan-title').textContent) && /Elegir captura/.test(p.$('scan-pick').textContent) && /Tomar foto/.test(p.$('scan-cam').textContent) && /Buscar facturas/.test(p.$('scan-go').textContent) && /^Pegue aquí/.test(p.$('scan-text').getAttribute('placeholder')) && /Texto del correo/.test(p.doc.querySelector('label[for="scan-text"]').textContent));
   ok('K: Spanish: nothing English left on the paste screen', !/Paste|Choose|Take a|Find Bills|doesn.t keep|Close/.test(p.$('scan-sheet').textContent.replace(/\s+/g, ' ')), p.$('scan-sheet').textContent.replace(/\s+/g, ' ').slice(0, 300));
   typeText('Su recibo de Acme Electric por $94.50 vence el ' + dayK(4) + '.');
   bK.fnCalls.length = 0;
@@ -463,13 +469,13 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   p.$('scan-go').click();
   await until(() => !p.$('scan-results').hidden);
   ok('K: Spanish: the function is told the language', bK.fnCalls[0].body.lang === 'es');
-  ok('K: Spanish: results in Spanish', /Se encontraron 3 cuentas\./.test(p.$('scan-found').textContent) && /Ya está en tu lista/.test(resultText()) && /Vence /.test(resultText()) && /Mensual/.test(resultText()) && /Según tu pago del/.test(resultText()) && /Revisa la fecha/.test(resultText()) && /^Agregar 2 cuentas$/.test(p.$('scan-add').textContent), p.$('scan-found').textContent + ' | ' + p.$('scan-add').textContent);
+  ok('K: Spanish: results in Spanish', /Se encontraron 3 facturas\./.test(p.$('scan-found').textContent) && /Ya está en su lista/.test(resultText()) && /Vence /.test(resultText()) && /Mensual/.test(resultText()) && /Según su pago del/.test(resultText()) && /Revise la fecha/.test(resultText()) && /^Agregar 2 facturas$/.test(p.$('scan-add').textContent), p.$('scan-found').textContent + ' | ' + p.$('scan-add').textContent);
   ok('K: Spanish: nothing English left on the results screen', !/\b(Due|Monthly|Found|Based on|Check the date|Add \d|Back)\b/.test(p.$('scan-results').textContent.replace(/\s+/g, ' ').replace(/Acme [A-Za-z]+/g, '')), p.$('scan-results').textContent.replace(/\s+/g, ' ').slice(0, 300));
   p.$('scan-add').click();
-  ok('K: Spanish: toast', await until(() => /Se agregaron 2 cuentas\./.test(p.$('toast').textContent)), p.$('toast').textContent);
+  ok('K: Spanish: toast', await until(() => /Se agregaron 2 facturas\./.test(p.$('toast').textContent)), p.$('toast').textContent);
   openScanSheet(); typeText('Texto de otro correo con una cuenta por pagar pronto.');
   bK.fnReply = errReply('FunctionsHttpError', 'limit'); p.$('scan-go').click();
-  ok('K: Spanish: error text', await until(() => !p.$('scan-error').hidden) && /Eso es todo por hoy/.test(p.$('scan-err-title').textContent) && /Inténtalo mañana/.test(p.$('scan-err-body').textContent) && /Intentar de nuevo/.test(p.$('scan-retry').textContent));
+  ok('K: Spanish: error text', await until(() => !p.$('scan-error').hidden) && /Eso es todo por hoy/.test(p.$('scan-err-title').textContent) && /Inténtelo mañana/.test(p.$('scan-err-body').textContent) && /Intentar de nuevo/.test(p.$('scan-retry').textContent));
   p.$('scan-close').click();
   p.close();
 
@@ -477,6 +483,283 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   p = open({ backend: makeBackend(), configured: false });
   await until(() => p.$('title-text').textContent);
   ok('K: this-phone-only mode: no Add from Email (it needs an account)', p.$('scan-btn').hidden && !p.doc.body.classList.contains('two-bar'));
+  p.close();
+
+  // ---------- L. the pure helpers: bill type for the icon, amounts in dollars and colones
+  const pureSrc = html.split('/* ==PURE START== */')[1].split('/* ==PURE END== */')[0];
+  const P = new Function(pureSrc + '\n;return {billKind,setLocale,money,parseAmount,validateExtracted,mergeFound};')();
+  const KINDS = [['Wifi','internet'],['Wi-Fi Kölbi','internet'],['Internet','internet'],['Fibra óptica','internet'],['Starlink','internet'],['Xfinity','internet'],
+    ['Kölbi','phone'],['Teléfono','phone'],['Movistar','phone'],['T-Mobile','phone'],['AT&T','phone'],['Verizon Wireless','phone'],['Celular de Ana','phone'],
+    ['Luz','power'],['Electric','power'],['ICE','power'],['CNFL','power'],['Coopelesca','power'],['PSO','power'],['Electricidad','power'],
+    ['Agua','water'],['AyA','water'],['Water','water'],['City of Tulsa','water'],
+    ['Gas','gas'],['Oklahoma Natural Gas','gas'],['Gas natural','gas'],['Basura','trash'],['Trash','trash'],
+    ['Netflix','tv'],['Cable','tv'],['Spotify','tv'],['Disney+','tv'],
+    ['Alquiler','home'],['Rent','home'],['Hipoteca','home'],['Condominio','home'],
+    ['Tarjeta BAC','card'],['Visa','card'],['Capital One','card'],
+    ['Carro','car'],['Marchamo','car'],['Parqueo','car'],
+    ['Seguro del carro','insurance'],['State Farm','insurance'],['INS','insurance'],['CCSS','insurance'],
+    ['Dentista','health'],['Gimnasio','health'],['Préstamo personal','loan'],['Student Loan','loan'],
+    ['Hacienda','bill'],['Mom','bill'],['','bill'],[null,'bill']];
+  const wrongKinds = KINDS.filter(([n, k]) => P.billKind(n) !== k).map(([n, k]) => n + ' -> ' + P.billKind(n) + ' (wanted ' + k + ')');
+  ok('L: bill type picks the right picture for water, electricity, internet, phone and more (English and Costa Rican names)', wrongKinds.length === 0, wrongKinds.join('; '));
+  P.setLocale('es', 'CRC');
+  const sp = v => P.money(v).replace(/\s/g, ' ');
+  ok('L: colones in Costa Rican Spanish: ₡24 750, no cents when whole, cents when not', sp(24750) === '₡24 750' && sp(18500.5) === '₡18 500,50' && sp(1250000) === '₡1 250 000' && P.money(null) === '—', sp(24750) + ' | ' + sp(18500.5));
+  P.setLocale('en', 'CRC');
+  ok('L: colones in English', P.money(1250000) === '₡1,250,000', P.money(1250000));
+  P.setLocale('es', 'USD');
+  ok('L: dollars in Costa Rican Spanish keep their cents: $1 200,00', P.money(1200).replace(/\s/g, ' ') === '$1 200,00', P.money(1200));
+  P.setLocale('en', 'USD');
+  ok('L: dollars in English: $1,200.00', P.money(1200) === '$1,200.00');
+  P.setLocale('es', 'CRC');
+  ok('L: colones typed the Costa Rican way: 25.000 / 25 000,50 / ₡18.500 / ¢18500', P.parseAmount('25.000').value === 25000 && P.parseAmount('25 000,50').value === 25000.5 && P.parseAmount('₡18.500').value === 18500 && P.parseAmount('¢18500').value === 18500 && P.parseAmount('1.234.567').value === 1234567, JSON.stringify(['25.000', '25 000,50', '₡18.500', '¢18500'].map(x => P.parseAmount(x).value)));
+  P.setLocale('en', 'CRC');
+  ok('L: an English phone with a colones list also reads 25.000 as twenty-five thousand', P.parseAmount('25.000').value === 25000 && P.parseAmount('25,000').value === 25000);
+  P.setLocale('en', 'USD');
+  ok('L: dollars in English still refuse 25.000 (three decimals), unchanged', !!P.parseAmount('25.000').error && P.parseAmount('94.50').value === 94.5);
+  ok('L: errors show an example in the right currency', /like 94\.50/.test(P.parseAmount('abc').error) && (P.setLocale('en', 'CRC'), /like 25000/.test(P.parseAmount('abc').error)));
+  P.setLocale('en', 'USD');
+  const em = [{ date: '2026-11-04', subject: 'x' }];
+  const ve = a => P.validateExtracted([{ email: 1, kind: 'bill', name: 'Big Co', amount: a, currency: 'CRC', date: '2026-11-20', repeat: 'monthly' }], em);
+  ok('L: scan amounts up to hundreds of millions are accepted (colones are big numbers); absurd ones are dropped', ve(250000000)[0].amount === 250000000 && ve(2e9)[0].amount === null);
+  ok('L: scan currency is kept only if USD or CRC', ve(5)[0].cur === 'CRC' && P.validateExtracted([{ email: 1, kind: 'bill', name: 'A Co', amount: 5, currency: 'EUR', date: '2026-11-20', repeat: 'none' }], em)[0].cur === null);
+  const mf = (cur, listCur) => P.mergeFound([{ name: 'Netflix', amount: 15.99, cur, due: '2026-11-20', repeat: 'monthly', kind: 'bill', sent: '2026-11-04', subject: '' }], [], '2026-11-04', listCur)[0];
+  ok('L: an amount in the other currency is held back, not copied in', mf('USD', 'CRC').amount === null && mf('USD', 'CRC').foreign.cur === 'USD' && mf('USD', 'CRC').foreign.amount === 15.99 && mf('USD', 'USD').amount === 15.99 && mf('USD', 'USD').foreign === null && mf(null, 'CRC').amount === 15.99 && mf('USD').amount === 15.99);
+
+  // ---------- M. a mother in Costa Rica: Costa Rican Spanish, colones, icons
+  const dayL = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const flat = el => el.textContent.replace(/\s+/g, ' ');
+  const bL = makeBackend();
+  p = open({ backend: bL, langs: ['es-CR', 'es'] });
+  await until(() => !p.$('auth').hidden);
+  await p.signIn('mama@example.test');
+  ok('M: first time: Settings asks her name and currency; a phone set to Costa Rica pre-selects colones', await until(() => !p.$('name-scrim').hidden) && p.$('f-ucur').value === 'CRC' && /Ajustes/.test(p.$('name-title').textContent) && /Moneda/.test(p.doc.querySelector('label[for="f-ucur"]').textContent) && /Colones/.test(p.$('f-ucur').textContent) && /Dólares/.test(p.$('f-ucur').textContent), p.$('f-ucur').value);
+  p.$('f-uname').value = 'Mamá'; p.submit('name-form');
+  ok('M: the page says “Facturas de Mamá”', await until(() => p.$('title-text').textContent === 'Facturas de Mamá'), p.$('title-text').textContent);
+  const profL = () => (bL.rows.find(r => r.id === 'profile') || {}).data;
+  ok('M: name and currency are saved in her own profile', await until(() => !!profL() && profL().currency === 'CRC') && profL().currency === 'CRC' && profL().asked === true && profL().name === 'Mamá', JSON.stringify(profL()));
+  ok('M: header button shows ₡ and names the currency', p.$('cur-btn').textContent === '₡' && /colones/.test(p.$('cur-btn').getAttribute('aria-label')) && !p.$('cur-btn').hidden);
+  ok('M: the Add button says “Agregar una factura”', /Agregar una factura/.test(p.$('add-btn').textContent) && p.doc.title === 'Facturas');
+  p.$('add-btn').click();
+  ok('M: new-bill form shows ₡ and a colones placeholder', p.$('f-sym').textContent === '₡' && p.$('f-amount').getAttribute('placeholder') === '0' && /Nueva factura/.test(p.$('bill-title').textContent));
+  p.$('f-name').value = 'Luz ICE'; p.$('f-amount').value = '24.750'; p.$('f-due').value = dayL(5); p.$('f-repeat').value = 'monthly'; p.submit('bill-form');
+  ok('M: “24.750” is saved as twenty-four thousand seven hundred fifty', await until(() => bL.rows.some(r => r.data && r.data.name === 'Luz ICE' && r.data.amount === 24750)), JSON.stringify(bL.rows.map(r => r.data && r.data.amount)));
+  ok('M: the list shows ₡24 750 and the tile adds it up', /₡24 750/.test(flat(p.$('content'))) && (flat(p.$('content')).match(/₡24 750/g) || []).length >= 3, flat(p.$('content')).slice(0, 200));
+  p.fillBill('Kölbi', '18500,50', dayL(12));
+  ok('M: cents show only when there are some: ₡18 500,50', await until(() => /₡18 500,50/.test(flat(p.$('content')))), flat(p.$('content')).slice(0, 300));
+  const rowFor = n => [...p.$('content').querySelectorAll('.row')].find(r => r.textContent.includes(n));
+  ok('M: each bill has a picture: electricity bolt and phone', rowFor('Luz ICE').querySelector('.bico').getAttribute('data-kind') === 'power' && rowFor('Kölbi').querySelector('.bico').getAttribute('data-kind') === 'phone' && !!rowFor('Luz ICE').querySelector('.bico svg') && rowFor('Luz ICE').querySelector('.bico').getAttribute('aria-hidden') === 'true');
+  rowFor('Luz ICE').querySelector('[data-act="edit"]').click();
+  ok('M: editing shows ₡ and the amount the way she types it (24750)', p.$('f-sym').textContent === '₡' && p.$('f-amount').value === '24750' && /Editar factura/.test(p.$('bill-title').textContent), p.$('f-amount').value);
+  p.$('bill-cancel').click();
+  rowFor('Kölbi').querySelector('[data-act="edit"]').click();
+  ok('M: …and 18500,50 with a decimal comma', p.$('f-amount').value === '18500,50', p.$('f-amount').value);
+  p.$('bill-cancel').click();
+  p.$('add-btn').click(); p.$('f-name').value = 'Agua'; p.$('f-amount').value = 'abc'; p.submit('bill-form');
+  ok('M: a bad amount is explained with a colones example', await until(() => !p.$('f-error').hidden) && /por ejemplo 25000/.test(p.$('f-error').textContent), p.$('f-error').textContent);
+  p.$('bill-cancel').click();
+  // switch to dollars from the header button
+  p.$('cur-btn').click();
+  ok('M: the ₡ button opens Settings with the currency box ready', !p.$('name-scrim').hidden && p.doc.activeElement === p.$('f-ucur') && p.$('f-ucur').value === 'CRC');
+  p.$('f-ucur').value = 'USD'; p.submit('name-form');
+  ok('M: dollars: the same numbers show with $ (nothing converted)', await until(() => /\$24 750,00/.test(flat(p.$('content')))) && p.$('cur-btn').textContent === '$' && bL.rows.some(r => r.data && r.data.name === 'Luz ICE' && r.data.amount === 24750) && await until(() => profL().currency === 'USD') && profL().name === 'Mamá', flat(p.$('content')).slice(0, 160));
+  p.$('cur-btn').click(); p.$('f-ucur').value = 'CRC'; p.submit('name-form');
+  await until(() => /₡24 750/.test(flat(p.$('content'))));
+  // English with colones
+  p.doc.querySelector('.date-row .lang-btn').click();
+  ok('M: English page, colones list: ₡24,750', /₡24,750/.test(flat(p.$('content'))) && p.$('title-text').textContent === 'Mamá’s Bills', flat(p.$('content')).slice(0, 120));
+  p.fillBill('Water', '25.000', dayL(9));
+  ok('M: English page: “25.000” in a colones list is 25000', await until(() => bL.rows.some(r => r.data && r.data.name === 'Water' && r.data.amount === 25000)), JSON.stringify(bL.rows.map(r => r.data && r.data.amount)));
+  ok('M: the water bill gets the water picture', rowFor('Water').querySelector('.bico').getAttribute('data-kind') === 'water');
+  p.doc.querySelector('.date-row .lang-btn').click();
+  ok('M: footer has a Settings link that opens the same sheet', /Ajustes/.test(flat(p.$('content'))) && (p.$('content').querySelector('[data-act="settings"]').click(), !p.$('name-scrim').hidden));
+  p.$('name-cancel').click();
+  ok('M: nothing else in the list screen is in English', !/\b(Due|Monthly|Overdue|Later|Paid|Sign out)\b/.test(flat(p.$('content'))), flat(p.$('content')).slice(-200));
+  p.close();
+
+  // legacy profile (no currency saved) stays in dollars; an English phone is offered dollars; closing the sheet keeps the choice
+  const bOld = makeBackend(); const oldId = bOld.userId('old@example.test');
+  bOld.session = { user: { id: oldId, email: 'old@example.test' } };
+  bOld.rows.push({ user_id: oldId, id: 'profile', data: { name: 'Old', asked: true } }, { user_id: oldId, id: 'b1', data: { name: 'Phone', amount: 65, due: dayL(3), repeat: 'monthly', anchorDay: 1, paid: false, lastPaid: null } });
+  p = open({ backend: bOld, langs: ['es-CR'] });
+  ok('M: an existing list with no currency saved stays in dollars (even on a Costa Rican phone)', await until(() => /Phone/.test(p.$('content').textContent)) && /\$65,00/.test(flat(p.$('content'))) && p.$('cur-btn').textContent === '$');
+  p.close();
+  const bUS = makeBackend();
+  p = open({ backend: bUS });
+  await until(() => !p.$('auth').hidden); await p.signIn('sam@example.test');
+  ok('M: an English phone is offered dollars', await until(() => !p.$('name-scrim').hidden) && p.$('f-ucur').value === 'USD');
+  p.$('name-cancel').click();
+  ok('M: closing the sheet without saving still remembers the first choice', await until(() => bUS.rows.some(r => r.id === 'profile' && r.data.currency === 'USD' && r.data.asked === true)), JSON.stringify(bUS.rows.map(r => r.data)));
+  p.close();
+
+  // this-phone-only mode keeps the currency on the phone, and examples come in colones
+  p = open({ backend: makeBackend(), configured: false, langs: ['es-CR'] });
+  await until(() => !p.$('name-scrim').hidden);
+  p.$('f-uname').value = 'Tica'; p.$('f-ucur').value = 'CRC'; p.submit('name-form');
+  await until(() => p.$('title-text').textContent === 'Facturas de Tica');
+  ok('M: this-phone-only mode: currency saved on the phone', JSON.parse(p.lsAll()['mybills.profile.v1']).currency === 'CRC');
+  p.$('content').querySelector('[data-act="examples"]').click();
+  ok('M: example bills come in colones, with water, internet and rent pictures', await until(() => /₡280 000/.test(flat(p.$('content')))) && ['water', 'internet', 'home', 'phone', 'power'].every(k => !!p.$('content').querySelector('.bico[data-kind="' + k + '"]')), flat(p.$('content')).slice(0, 200));
+  p.close();
+
+  // ---------- N. staying signed in
+  const dayN = dayL;
+  const savedLogin = JSON.stringify({ access_token: 'a', refresh_token: 'r', expires_at: 1, user: { id: 'u' } });
+  const mom = () => {
+    const b = makeBackend(); const id = b.userId('mom@example.test');
+    b.session = { user: { id, email: 'mom@example.test' } };
+    b.rows.push({ user_id: id, id: 'profile', data: { name: 'Mamá', asked: true, currency: 'CRC' } }, { user_id: id, id: 'b1', data: { name: 'Luz', amount: 24750, due: dayN(5), repeat: 'monthly', anchorDay: 1, paid: false, lastPaid: null } });
+    return b;
+  };
+  // a phone that has just woken up has no connection yet: the login check fails twice, then works
+  let bN = mom(); bN.sessionFails = 2;
+  p = open({ backend: bN, ls: { 'sb-x-auth-token': savedLogin, 'mybills.lang': 'es' } });
+  await sleep(250);
+  ok('N: a login check that fails while a login is saved does NOT show the sign-in screen', p.$('auth').hidden && !p.doc.querySelector('.app').hidden && !!p.$('content').querySelector('.skel'));
+  p.w.dispatchEvent(new p.w.Event('online')); await sleep(120);
+  ok('N: …and keeps waiting after a second failure', p.$('auth').hidden && !!p.$('content').querySelector('.skel') && bN.sessionFails === 0);
+  p.w.dispatchEvent(new p.w.Event('online'));
+  ok('N: …then signs in by itself when the connection is back (list and colones intact)', await until(() => /Luz/.test(p.$('content').textContent)) && p.$('auth').hidden && /₡24 750/.test(flat(p.$('content'))) && p.$('title-text').textContent === 'Facturas de Mamá');
+  p.close();
+  // no events at all: it retries on its own timer
+  bN = mom(); bN.sessionFails = 1;
+  p = open({ backend: bN, ls: { 'sb-x-auth-token': savedLogin } });
+  ok('N: it also retries on its own after a moment', await until(() => /Luz/.test(p.$('content').textContent), 6000) && p.$('auth').hidden);
+  p.close();
+  // the login arrives through the library's own event instead
+  bN = mom(); bN.sessionFails = 999; const momSession = bN.session;
+  p = open({ backend: bN, ls: { 'sb-x-auth-token': savedLogin } });
+  await sleep(200); bN.session = momSession; bN.sessionFails = 0;
+  bN.listeners.forEach(cb => cb('TOKEN_REFRESHED', momSession));
+  ok('N: …or when the library announces a refreshed login', await until(() => /Luz/.test(p.$('content').textContent)) && p.$('auth').hidden);
+  p.close();
+  // the server itself says the login is no good (400): then, and only then, sign in again
+  bN = mom(); bN.session = null; bN.sessionFails = 1; bN.sessionError = { name: 'AuthApiError', status: 400, message: 'Invalid Refresh Token: Refresh Token Not Found' };
+  p = open({ backend: bN, ls: { 'sb-x-auth-token': savedLogin } });
+  ok('N: a login the server refuses sends her to sign in, and clears it', await until(() => !p.$('auth').hidden) && bN.log.some(l => l[0] === 'signOut' && /local/.test(l[1])));
+  p.close();
+  // a saved login that is gone and nothing in storage: sign in at once
+  p = open({ backend: makeBackend() });
+  ok('N: no saved login => sign-in screen right away', await until(() => !p.$('auth').hidden));
+  p.close();
+  // signed out elsewhere while the page is open
+  bN = mom(); p = open({ backend: bN, ls: { 'sb-x-auth-token': savedLogin } });
+  await until(() => /Luz/.test(p.$('content').textContent));
+  bN.session = null; bN.listeners.forEach(cb => cb('SIGNED_OUT', null));
+  ok('N: signed out for real while the page is open => sign-in screen', await until(() => !p.$('auth').hidden));
+  p.close();
+  // while recovering, a lapsed login must not wipe the list with an empty answer
+  bN = mom();
+  p = open({ backend: bN, ls: { 'sb-x-auth-token': savedLogin } });
+  await until(() => /Luz/.test(p.$('content').textContent));
+  const realNowN = p.w.Date.now; p.w.Date.now = () => realNowN.call(p.w.Date) + 60000;
+  bN.session = null; bN.anonFallback = true; bN.sessionFails = 3;
+  p.w.dispatchEvent(new p.w.Event('online')); await sleep(150);
+  ok('N: a refresh that comes back empty because the login lapsed does not erase what is on screen', /Luz/.test(p.$('content').textContent) && !/Aún no hay|No bills yet/.test(p.$('content').textContent));
+  p.close();
+
+  // the code step survives the page being closed while she reads her mail
+  const bP = makeBackend();
+  p = open({ backend: bP, langs: ['es-CR'] });
+  await until(() => !p.$('auth').hidden);
+  p.$('a-email').value = 'Mama@Example.test'; p.submit('auth-email-form');
+  await until(() => !p.$('auth-code-form').hidden);
+  let lsP = p.lsAll(); p.close();
+  ok('N: the email waiting for a code is remembered on the device', JSON.parse(lsP['mybills.pendingCode']).email === 'mama@example.test' && lsP['mybills.lastEmail'] === 'mama@example.test');
+  p = open({ backend: bP, ls: lsP, langs: ['es-CR'] });
+  await until(() => !p.$('auth').hidden);
+  ok('N: coming back lands on the code box for the same email (not on a blank form)', !p.$('auth-code-form').hidden && p.$('auth-email-form').hidden && /mama@example\.test/.test(p.$('a-sent').textContent) && /Enviamos un código/.test(p.$('a-sent').textContent) && !p.$('a-resend').disabled && /Enviar un código nuevo$/.test(p.$('a-resend').textContent), p.$('a-resend').textContent);
+  p.$('a-code').value = '123456'; p.submit('auth-code-form');
+  ok('N: the code still works, and the waiting state is cleared', await until(() => p.$('auth').hidden) && !p.lsAll()['mybills.pendingCode'] && p.lsAll()['mybills.lastEmail'] === 'mama@example.test');
+  p.close();
+  // too old: back to the email box, with her email filled in
+  const oldPending = { ...lsP, 'mybills.pendingCode': JSON.stringify({ email: 'mama@example.test', at: Date.now() - 56 * 60 * 1000 }) };
+  p = open({ backend: makeBackend(), ls: oldPending });
+  await until(() => !p.$('auth').hidden);
+  ok('N: an hour-old code request is not restored; her email is filled in', !p.$('auth-email-form').hidden && p.$('auth-code-form').hidden && p.$('a-email').value === 'mama@example.test');
+  p.$('a-email').value = 'mama@example.test'; p.submit('auth-email-form');
+  await until(() => !p.$('auth-code-form').hidden);
+  p.$('a-change').click();
+  ok('N: “Use a different email” forgets the waiting code', !p.$('auth-email-form').hidden && !p.lsAll()['mybills.pendingCode']);
+  p.close();
+  // sign out forgets the code request but keeps the email for next time
+  const bS = makeBackend();
+  p = open({ backend: bS }); await until(() => !p.$('auth').hidden); await p.signIn('lee@example.test');
+  p.$('name-cancel').click();
+  await until(() => p.$('content').querySelector('[data-act="signout"]'));
+  p.$('content').querySelector('[data-act="signout"]').click();
+  ok('N: after signing out, the email box is filled in and there is no waiting code', await until(() => !p.$('auth').hidden) && p.$('a-email').value === 'lee@example.test' && !p.lsAll()['mybills.pendingCode'] && p.$('auth-code-form').hidden);
+  p.close();
+
+  // ---------- O. “stay signed in” hint for iPhone (Safari forgets sites it has not seen in a week; a Home Screen icon is exempt)
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const bH = mom();
+  p = open({ backend: bH, ua: IPHONE, ls: { 'sb-x-auth-token': savedLogin, 'mybills.lang': 'es' } });
+  ok('O: iPhone in Safari: a one-time note explains how to stay signed in (Spanish)', await until(() => /Agregar a pantalla de inicio/.test(p.$('content').textContent)) && /Safari/.test(p.$('content').textContent) && !!p.$('content').querySelector('[data-act="hint-ok"]'));
+  p.$('content').querySelector('[data-act="hint-ok"]').click();
+  ok('O: “Entendido” hides it and remembers', !/Agregar a pantalla de inicio/.test(p.$('content').textContent) && p.lsAll()['mybills.homeHint'] === '1');
+  p.close();
+  p = open({ backend: mom(), ua: IPHONE, ls: { 'sb-x-auth-token': savedLogin, 'mybills.homeHint': '1' } });
+  await until(() => /Luz/.test(p.$('content').textContent));
+  ok('O: once dismissed it stays away', !p.$('content').querySelector('[data-act="hint-ok"]'));
+  p.close();
+  p = open({ backend: mom(), ua: IPHONE, standalone: true, ls: { 'sb-x-auth-token': savedLogin } });
+  await until(() => /Luz/.test(p.$('content').textContent));
+  ok('O: already added to the Home Screen => no note', !p.$('content').querySelector('[data-act="hint-ok"]'));
+  p.close();
+  p = open({ backend: mom(), ls: { 'sb-x-auth-token': savedLogin } });
+  await until(() => /Luz/.test(p.$('content').textContent));
+  ok('O: computer or Android => no note', !p.$('content').querySelector('[data-act="hint-ok"]'));
+  p.close();
+
+  // ---------- P. Add from Email with a colones list: amounts in the other currency are held back
+  const bQ = makeBackend();
+  p = open({ backend: bQ, langs: ['es-CR'] });
+  await until(() => !p.$('auth').hidden); await p.signIn('ana@example.test');
+  await until(() => !p.$('name-scrim').hidden);
+  p.$('f-uname').value = 'Ana'; p.$('f-ucur').value = 'CRC'; p.submit('name-form');
+  await until(() => p.$('title-text').textContent === 'Facturas de Ana');
+  p.$('scan-btn').click();
+  p.$('scan-text').value = 'Recibo de la luz de ICE por ₡24.750 vence pronto. Netflix cobró $15,99 este mes.'; p.$('scan-text').dispatchEvent(new p.w.Event('input', { bubbles: true }));
+  bQ.fnReply = { data: { bills: [
+    { kind: 'bill', name: 'ICE Luz', amount: 24750, currency: 'CRC', date: dayL(6), repeat: 'monthly' },
+    { kind: 'bill', name: 'Netflix', amount: 15.99, currency: 'USD', date: dayL(9), repeat: 'monthly' },
+    { kind: 'bill', name: 'Kölbi', amount: 18500, currency: null, date: dayL(11), repeat: 'monthly' },
+  ] }, error: null };
+  p.$('scan-go').click();
+  await until(() => !p.$('scan-results').hidden);
+  const resQ = flat(p.$('scan-results'));
+  ok('P: the function is told the list is in colones', bQ.fnCalls[0].body.currency === 'CRC' && bQ.fnCalls[0].body.lang === 'es');
+  ok('P: colones amounts appear as ₡; the dollar one is blank with a plain explanation (Spanish)', /₡24 750/.test(resQ) && /₡18 500/.test(resQ) && /Se cobra en dólares \(\$15,99\)\. Su lista es en colones, así que el monto queda en blanco\./.test(resQ), resQ.slice(0, 400));
+  const liQ = n => [...p.$('scan-list').children].find(li => li.textContent.includes(n));
+  ok('P: results show pictures (bolt, TV, phone)', liQ('ICE').querySelector('.bico').getAttribute('data-kind') === 'power' && liQ('Netflix').querySelector('.bico').getAttribute('data-kind') === 'tv' && liQ('Kölbi').querySelector('.bico').getAttribute('data-kind') === 'phone' && liQ('Netflix').querySelector('.scan-note.warn'));
+  p.$('scan-add').click();
+  ok('P: adding keeps the dollar bill with no amount, and the colones ones as typed', await until(() => bQ.rows.some(r => r.data && r.data.name === 'Netflix')) && bQ.rows.find(r => r.data && r.data.name === 'Netflix').data.amount === null && bQ.rows.find(r => r.data && r.data.name === 'ICE Luz').data.amount === 24750);
+  p.close();
+  // dollars list, a bill in colones
+  const bR = makeBackend();
+  p = open({ backend: bR });
+  await until(() => !p.$('auth').hidden); await p.signIn('pat@example.test');
+  p.$('f-uname').value = 'Pat'; p.submit('name-form');
+  await until(() => p.$('title-text').textContent === 'Pat’s Bills');
+  p.$('scan-btn').click();
+  p.$('scan-text').value = 'Your ICE bill is 24,750 colones, due soon. Thanks for being a customer.'; p.$('scan-text').dispatchEvent(new p.w.Event('input', { bubbles: true }));
+  bR.fnReply = { data: { bills: [{ kind: 'bill', name: 'ICE Luz', amount: 24750, currency: 'CRC', date: dayL(6), repeat: 'monthly' }, { kind: 'bill', name: 'Acme Power', amount: 94.5, currency: 'USD', date: dayL(7), repeat: 'monthly' }] }, error: null };
+  p.$('scan-go').click(); await until(() => !p.$('scan-results').hidden);
+  const resR = flat(p.$('scan-results'));
+  ok('P: dollars list: the function is told USD; a colones bill is explained in English; the dollar bill keeps $94.50', bR.fnCalls[0].body.currency === 'USD' && /Billed in colones \(₡24,750\)\. Your list is in dollars, so the amount is left blank\./.test(resR) && /\$94\.50/.test(resR), resR.slice(0, 400));
+  p.close();
+  // an older function that does not know about currencies: nothing changes
+  const bT = makeBackend();
+  p = open({ backend: bT, langs: ['es-CR'] });
+  await until(() => !p.$('auth').hidden); await p.signIn('old2@example.test');
+  await until(() => !p.$('name-scrim').hidden); p.$('f-ucur').value = 'CRC'; p.submit('name-form');
+  await until(() => !p.$('name-scrim').hidden === false);
+  p.$('scan-btn').click();
+  p.$('scan-text').value = 'Recibo del agua de AyA por 9.800 colones, vence pronto, gracias.'; p.$('scan-text').dispatchEvent(new p.w.Event('input', { bubbles: true }));
+  bT.fnReply = { data: { bills: [{ kind: 'bill', name: 'AyA Agua', amount: 9800, date: dayL(6), repeat: 'monthly' }] }, error: null };
+  p.$('scan-go').click(); await until(() => !p.$('scan-results').hidden);
+  ok('P: a reply without a currency is taken as the list’s own currency', /₡9 800/.test(flat(p.$('scan-results'))) && !p.$('scan-results').querySelector('.scan-note.warn') && p.$('scan-list').querySelector('.bico').getAttribute('data-kind') === 'water');
   p.close();
 
   process.exit(failed ? 1 : 0);

@@ -2,8 +2,9 @@
 // "Add from Email": reads pasted email text and/or screenshots or photos of a bill and returns the bills it finds.
 // Runs on Supabase Edge Functions (Deno). The Anthropic API key lives only here, as the secret ANTHROPIC_API_KEY.
 //
-// Request  (POST, signed-in person only):  { text?: string, images?: [{ media_type, data(base64) }], today: "YYYY-MM-DD", lang: "en" | "es" }
-// Response (200):                          { bills: [{ kind: "bill"|"receipt"|"statement", name, amount|null, date|null, repeat }] }
+// Request  (POST, signed-in person only):  { text?: string, images?: [{ media_type, data(base64) }], today: "YYYY-MM-DD", lang: "en" | "es", currency?: "USD" | "CRC" }
+//          (currency is the one the person's list uses; it only helps Claude read amounts like 25.000 correctly. Default USD.)
+// Response (200):                          { bills: [{ kind: "bill"|"receipt"|"statement", name, amount|null, currency: "USD"|"CRC"|null, date|null, repeat }] }
 // Errors:                                  { error: "unauthorized" | "bad_request" | "too_big" | "limit" | "not_configured" | "busy" | "ai_failed" }
 //
 // Nothing the person sends is stored. A per-person and an overall daily limit (table scan_usage) cap what this can cost.
@@ -19,6 +20,7 @@ const MAX_IMAGE_B64 = 5 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const KINDS = ["bill", "receipt", "statement"];
 const REPEATS = ["none", "weekly", "biweekly", "monthly", "yearly"];
+const CURRENCIES = ["USD", "CRC"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -51,10 +53,11 @@ const TOOL = {
             kind: { type: "string", enum: KINDS },
             name: { type: "string" },
             amount: { type: ["number", "null"] },
+            currency: { type: ["string", "null"], enum: [...CURRENCIES, null] },
             date: { type: ["string", "null"] },
             repeat: { type: "string", enum: REPEATS },
           },
-          required: ["kind", "name", "amount", "date", "repeat"],
+          required: ["kind", "name", "amount", "currency", "date", "repeat"],
         },
       },
     },
@@ -62,18 +65,27 @@ const TOOL = {
   },
 };
 
-function instructions(today, lang) {
+function currencyNote(currency) {
+  if (currency === "CRC") {
+    return "The person lives in Costa Rica and keeps their list in Costa Rican colones (CRC). An amount with no symbol is almost certainly colones. Costa Rican bills write amounts like ₡25.000,00, ¢25 000 or CRC 25,000: a period, a space or a comma separates the thousands and a comma (sometimes a period) separates the cents, so 25.000 is twenty-five thousand, not twenty-five. Report such an amount as 25000. Usual billers: ICE, CNFL, JASEC, ESPH and the electric cooperatives (electricity), AyA, ASADA and the municipalities (water, garbage), Kölbi, Liberty, Claro, Movistar and Tigo (phone, internet, TV), CCSS and INS (insurance). Spanish words you may see: factura, recibo, estado de cuenta, fecha de vencimiento, pago mínimo, monto a pagar.";
+  }
+  return "The person keeps their list in US dollars. An amount with no symbol is dollars.";
+}
+
+function instructions(today, lang, currency) {
   return [
     "Today is " + today + ". The content may be in English or Spanish" + (lang === "es" ? " (the person reads Spanish)" : "") + "; keep names as written in the content and do not translate them.",
+    currencyNote(currency),
     "Find the money the person pays on a regular basis or still owes: credit card, utility, rent, loan, insurance, phone, internet, subscription and membership bills. One email, screenshot or photo can hold several bills; report each one separately.",
     "For each one, say what kind it is:",
     "- \"bill\": it says a payment is due or will be charged on a specific date (a bill is ready, a payment or minimum payment is due, an automatic payment is scheduled). \"date\" is that due or charge date.",
     "- \"receipt\": it confirms a payment or charge that already happened for something that repeats (a subscription, rent, a utility or loan payment). \"date\" is the day it was paid or charged. \"repeat\" must not be \"none\".",
     "- \"statement\": a statement or bill is ready to view, but no due date is given. \"date\" is null.",
-    "Skip: marketing and sales, one-time purchases and orders, travel bookings, taxes, court or government fees, money other people sent to the person (Cash App, Venmo, Zelle and the like), refunds, security alerts, and account notices. If the content has no bills, report an empty list.",
+    "Skip: marketing and sales, one-time purchases and orders, travel bookings, taxes, court or government fees, money other people sent to the person (Cash App, Venmo, Zelle, SINPE Móvil and the like), refunds, security alerts, and account notices. If the content has no bills, report an empty list.",
     "Rules:",
     "- \"name\" is the company or what the bill is for, short and plain, written the same way every time for the same company. Never put account, card, phone or street-address numbers in it.",
-    "- \"amount\" is the amount in dollars as a number, or null if it is not stated. When both appear, use the payment or minimum amount due, not the total balance.",
+    "- \"amount\" is the amount as a plain number (no symbol, no thousands separators, a decimal point for cents), or null if it is not stated. When both appear, use the payment or minimum amount due, not the total balance.",
+    "- \"currency\" is the currency the bill is in: \"USD\" for US dollars ($, US$, USD, dólares), \"CRC\" for Costa Rican colones (₡, ¢, CRC, colones), or null if it is not clear or is some other currency. Never convert an amount from one currency to another.",
     "- \"date\" is YYYY-MM-DD, or null. When only a month and day are given, choose the year that puts the date closest to today.",
     "- \"repeat\" is \"monthly\" for credit cards, utilities, phone, internet, insurance, rent, loans and most subscriptions, \"yearly\" for annual bills, \"weekly\" for weekly ones, otherwise \"none\".",
   ].join("\n");
@@ -101,7 +113,8 @@ export function cleanBills(raw) {
     out.push({
       kind: KINDS.includes(r.kind) ? r.kind : "bill",
       name,
-      amount: typeof r.amount === "number" && isFinite(r.amount) && r.amount >= 0 && r.amount < 1e7 ? Math.round(r.amount * 100) / 100 : null,
+      amount: typeof r.amount === "number" && isFinite(r.amount) && r.amount >= 0 && r.amount < 1e9 ? Math.round(r.amount * 100) / 100 : null,
+      currency: CURRENCIES.includes(r.currency) ? r.currency : null,
       date: validYmd(r.date) ? r.date : null,
       repeat: REPEATS.includes(r.repeat) ? r.repeat : "none",
     });
@@ -151,6 +164,7 @@ async function handle(req) {
   if (!body || typeof body !== "object") return reply(400, { error: "bad_request" });
   const today = body.today;
   const lang = body.lang === "es" ? "es" : "en";
+  const currency = body.currency === "CRC" ? "CRC" : "USD";
   if (!validYmd(today)) return reply(400, { error: "bad_request" });
   let text = body.text == null ? "" : body.text;
   if (typeof text !== "string") return reply(400, { error: "bad_request" });
@@ -176,7 +190,7 @@ async function handle(req) {
 
   // 4. Ask Claude, forcing the answer into the report_bills shape.
   const content = images.map((im) => ({ type: "image", source: { type: "base64", media_type: im.media_type, data: im.data } }));
-  content.push({ type: "text", text: instructions(today, lang) + (text ? "\n\n--- pasted text starts ---\n" + text + "\n--- pasted text ends ---" : "\n\nThe content is in the image" + (images.length > 1 ? "s" : "") + " above.") });
+  content.push({ type: "text", text: instructions(today, lang, currency) + (text ? "\n\n--- pasted text starts ---\n" + text + "\n--- pasted text ends ---" : "\n\nThe content is in the image" + (images.length > 1 ? "s" : "") + " above.") });
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 50000);
   let res;

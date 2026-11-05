@@ -298,6 +298,38 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 .auth-top{display:flex;justify-content:flex-end;margin-bottom:6px}
 .date-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px}
 .date-row .date{margin:0;min-width:0}
+.date-row{flex-wrap:wrap}
+.pills{display:flex;align-items:center;gap:8px;flex:none}
+.cur-btn{min-height:40px;min-width:40px;padding:0 12px;font-size:19px;justify-content:center}
+/* Bill-type icons: a coloured tile with a white drawing, like the icons in the iPhone Settings app. Decorative: the name next to it says the same thing. */
+.bico{flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff;background:#7A7F8A}
+.bico svg{width:20px;height:20px;display:block}
+.k-water{background:#1E88E5}
+.k-power{background:#D97706}
+.k-internet{background:#7E57C2}
+.k-phone{background:#2E9E4F}
+.k-gas{background:#E4572E}
+.k-trash{background:#6B7B8C}
+.k-home{background:#8D6E63}
+.k-tv{background:#E53970}
+.k-card{background:#455A9C}
+.k-car{background:#00897B}
+.k-insurance{background:#00838F}
+.k-health{background:#D8344B}
+.k-loan{background:#5C6B7A}
+.row.paid .bico{opacity:.5}
+.row-main{gap:10px}
+.scan-item .bico{width:32px;height:32px}
+.tile-amt.long{font-size:clamp(17px,5vw,21px)}
+/* Very narrow phones (320 px): a smaller icon, no arrow, tighter gaps, so a name like "Alquiler" is not cut in half next to a six-digit colones amount */
+@media (max-width:350px){
+  .row-main{gap:8px;padding-right:12px}
+  .row .bico{width:28px;height:28px;border-radius:8px}
+  .row .bico svg{width:17px;height:17px}
+  .row .chev{display:none}
+  .row-amt{font-size:16px}
+}
+.banner .banner-text{flex:1}
 </style>
 </head>
 <body>
@@ -306,8 +338,8 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   <div class="auth-top"><button type="button" class="pill-btn lang-btn"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.2 2.1 3.3 4.6 3.3 7.5s-1.1 5.4-3.3 7.5c-2.2-2.1-3.3-4.6-3.3-7.5S7.8 4.6 10 2.5z"/></svg><span class="lang-label">Español</span></button></div>
   <div class="auth-card">
     <div class="empty-icon" id="auth-icon"></div>
-    <h1 data-es="Cuentas">Bills</h1>
-    <p class="auth-sub" id="auth-sub" data-es="Lleva el control de lo que vence y cuándo. Inicia sesión con tu correo. No hay contraseña que recordar.">Keep track of what’s due and when. Sign in with your email. There is no password to remember.</p>
+    <h1 data-es="Facturas">Bills</h1>
+    <p class="auth-sub" id="auth-sub" data-es="Lleve el control de lo que vence y cuándo. Inicie sesión con su correo. No hay contraseña que recordar.">Keep track of what’s due and when. Sign in with your email. There is no password to remember.</p>
     <form id="auth-email-form" novalidate>
       <div class="fgroup">
         <div class="field"><label for="a-email" data-es="Correo">Email</label><input id="a-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="name@example.com" data-es-ph="nombre@ejemplo.com"></div>
@@ -331,8 +363,8 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 <div class="app">
   <header class="head">
     <div>
-      <h1><button type="button" class="title-btn" id="title-btn" disabled><span><span id="title-text">Bills</span><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 16.5l.8-3.4L13.6 3.8a1.8 1.8 0 0 1 2.6 2.6L6.9 15.7l-3.4.8z"/></svg></span><span class="sr-only" data-es=". Cambiar tu nombre">. Change your name</span></button></h1>
-      <div class="date-row"><p class="date" id="today-line"></p><button type="button" class="pill-btn lang-btn"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.2 2.1 3.3 4.6 3.3 7.5s-1.1 5.4-3.3 7.5c-2.2-2.1-3.3-4.6-3.3-7.5S7.8 4.6 10 2.5z"/></svg><span class="lang-label">Español</span></button></div>
+      <h1><button type="button" class="title-btn" id="title-btn" disabled><span><span id="title-text">Bills</span><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 16.5l.8-3.4L13.6 3.8a1.8 1.8 0 0 1 2.6 2.6L6.9 15.7l-3.4.8z"/></svg></span><span class="sr-only" data-es=". Cambiar su nombre y moneda">. Change your name and currency</span></button></h1>
+      <div class="date-row"><p class="date" id="today-line"></p><div class="pills"><button type="button" class="pill-btn cur-btn" id="cur-btn">$</button><button type="button" class="pill-btn lang-btn"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.2 2.1 3.3 4.6 3.3 7.5s-1.1 5.4-3.3 7.5c-2.2-2.1-3.3-4.6-3.3-7.5S7.8 4.6 10 2.5z"/></svg><span class="lang-label">Español</span></button></div></div>
     </div>
     <button type="button" class="pill-btn" id="rem-btn" hidden>
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.8a4.6 4.6 0 0 0-4.6 4.6c0 3.9-1.6 5-2.1 6h13.4c-.5-1-2.1-2.1-2.1-6A4.6 4.6 0 0 0 10 2.8z"/><path d="M8.2 16.2a2 2 0 0 0 3.6 0"/></svg>
@@ -346,7 +378,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   <div class="bar-inner">
     <button type="button" class="primary" id="add-btn">
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
-      <span data-es="Agregar una cuenta">Add a Bill</span>
+      <span data-es="Agregar una factura">Add a Bill</span>
     </button>
     <button type="button" class="secondary" id="scan-btn" hidden>
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="16" height="12" rx="2.5"/><path d="M4 7.5l7 5 7-5"/></svg>
@@ -367,7 +399,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
     <div class="fields">
       <div class="fgroup">
         <div class="field"><label for="f-name" data-es="Nombre">Name</label><input id="f-name" type="text" maxlength="60" autocomplete="off" autocapitalize="words" placeholder="Electric" data-es-ph="Luz"></div>
-        <div class="field"><label for="f-amount" data-es="Monto">Amount</label><div class="amt"><span aria-hidden="true">$</span><input id="f-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00"></div></div>
+        <div class="field"><label for="f-amount" data-es="Monto">Amount</label><div class="amt"><span aria-hidden="true" id="f-sym">$</span><input id="f-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00"></div></div>
         <div class="field"><label for="f-due" data-es="Vence">Due date</label><input id="f-due" type="date"></div>
         <div class="field"><label for="f-repeat" data-es="Se repite">Repeats</label>
           <select id="f-repeat">
@@ -382,9 +414,9 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
       <p class="form-error" id="f-error" role="alert" hidden></p>
       <p class="hint" id="f-hint">Not sure of the exact amount? An estimate is fine. You can change it later.</p>
       <div id="delete-zone" style="margin-top:22px" hidden>
-        <button type="button" class="danger" id="del-start" data-es="Eliminar cuenta">Delete Bill</button>
+        <button type="button" class="danger" id="del-start" data-es="Eliminar factura">Delete Bill</button>
         <div class="confirm" id="del-confirm" hidden>
-          <p data-es="¿Eliminar esta cuenta?">Delete this bill?</p>
+          <p data-es="¿Eliminar esta factura?">Delete this bill?</p>
           <div class="acts"><button type="button" id="del-no" data-es="Conservar">Keep It</button><button type="button" class="yes" id="del-yes" data-es="Eliminar">Delete</button></div>
         </div>
       </div>
@@ -396,14 +428,21 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
   <form class="sheet" id="name-form" role="dialog" aria-modal="true" aria-labelledby="name-title" tabindex="-1" novalidate>
     <div class="sheet-bar">
       <button type="button" class="bar-btn l" id="name-cancel" data-es="Cancelar">Cancel</button>
-      <h2 id="name-title" data-es="Tu nombre">Your Name</h2>
+      <h2 id="name-title" data-es="Ajustes">Settings</h2>
       <button type="submit" class="bar-btn strong r" id="name-save" data-es="Guardar">Save</button>
     </div>
     <div class="fields">
       <div class="fgroup">
         <div class="field"><label for="f-uname" data-es="Nombre">Name</label><input id="f-uname" type="text" maxlength="30" autocomplete="given-name" autocapitalize="words" placeholder="Maria" data-es-ph="María"></div>
+        <div class="field"><label for="f-ucur" data-es="Moneda">Currency</label>
+          <select id="f-ucur">
+            <option value="USD" data-es="Dólares ($)">US dollars ($)</option>
+            <option value="CRC" data-es="Colones (₡)">Colones (₡)</option>
+          </select>
+        </div>
       </div>
-      <p class="hint" data-es="Tu nombre aparece arriba en la página, como “Cuentas de María”. Solo tú puedes ver tus cuentas.">Your name goes at the top of the page, like “Maria’s Bills.” Only you can see your bills.</p>
+      <p class="hint" data-es="Su nombre aparece arriba en la página, como “Facturas de María”. Solo usted puede ver sus facturas.">Your name goes at the top of the page, like “Maria’s Bills.” Only you can see your bills.</p>
+      <p class="hint" data-es="La moneda solo cambia el símbolo. Los montos que ya ingresó no se convierten.">The currency only changes the symbol. Amounts you already entered are not converted.</p>
     </div>
   </form>
 </div>
@@ -416,7 +455,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
       <button type="submit" class="bar-btn strong r" id="rem-save" data-es="Guardar">Save</button>
     </div>
     <div class="fields">
-      <p class="hint" id="rem-local" style="margin-top:4px" data-es="Los recordatorios por correo no están disponibles cuando tus cuentas se guardan solo en este teléfono." hidden>Email reminders aren’t available when your bills are saved only on this phone.</p>
+      <p class="hint" id="rem-local" style="margin-top:4px" data-es="Los recordatorios por correo no están disponibles cuando sus facturas se guardan solo en este celular." hidden>Email reminders aren’t available when your bills are saved only on this phone.</p>
       <fieldset id="rem-fields">
         <div class="fgroup">
           <div class="switch-row"><label for="rm-enabled" data-es="Enviarme recordatorios por correo">Email me reminders</label><input class="switch" type="checkbox" role="switch" id="rm-enabled"></div>
@@ -430,7 +469,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
           <div class="switch-row"><label for="rm-d0" data-es="El día de vencimiento">On the due date</label><input class="switch" type="checkbox" role="switch" id="rm-d0"></div>
         </div>
         <p class="form-error" id="rm-error" role="alert" hidden></p>
-        <p class="hint" data-es="Solo las cuentas sin pagar reciben recordatorio. Los correos se envían una vez al día, por la mañana.">Only bills that are not paid get a reminder. Emails go out once a day, in the morning.</p>
+        <p class="hint" data-es="Solo las facturas sin pagar reciben recordatorio. Los correos se envían una vez al día, por la mañana.">Only bills that are not paid get a reminder. Emails go out once a day, in the morning.</p>
         <p class="hint" id="rm-status"></p>
       </fieldset>
     </div>
@@ -446,9 +485,9 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
     </div>
     <div class="fields">
       <section id="scan-intro">
-        <p class="scan-p" data-es="Pega un correo, elige una captura de pantalla o toma una foto de una cuenta. Claude la lee y te muestra lo que encuentra. No se agrega nada hasta que toques Agregar.">Paste an email, choose a screenshot, or take a photo of a bill. Claude reads it and shows you what it finds. Nothing is added until you tap Add.</p>
+        <p class="scan-p" data-es="Pegue un correo, elija una captura de pantalla o tome una foto de una factura. Claude la lee y le muestra lo que encuentra. No se agrega nada hasta que toque Agregar.">Paste an email, choose a screenshot, or take a photo of a bill. Claude reads it and shows you what it finds. Nothing is added until you tap Add.</p>
         <label class="sr-only" for="scan-text" data-es="Texto del correo">Email text</label>
-        <textarea class="paste" id="scan-text" rows="6" maxlength="20000" placeholder="Paste the email here…" data-es-ph="Pega aquí el correo…" spellcheck="false"></textarea>
+        <textarea class="paste" id="scan-text" rows="6" maxlength="20000" placeholder="Paste the email here…" data-es-ph="Pegue aquí el correo…" spellcheck="false"></textarea>
         <div class="pick-row">
           <button type="button" class="secondary" id="scan-pick"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="16" height="14" rx="2.5"/><circle cx="8" cy="9" r="1.6"/><path d="M3.5 15.5l4.5-4.2 3.2 3 2.3-2.2 5 4.4"/></svg><span data-es="Elegir captura">Choose Screenshot</span></button>
           <button type="button" class="secondary" id="scan-cam"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.4l1.2-1.8h5.8L15.1 6h1.4A2.5 2.5 0 0 1 19 8.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 3 15.5z"/><circle cx="11" cy="12" r="3.2"/></svg><span data-es="Tomar foto">Take a Photo</span></button>
@@ -458,7 +497,7 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
         <ul class="thumbs" id="scan-thumbs" hidden></ul>
         <p class="form-error" id="scan-input-error" role="alert" hidden></p>
         <p class="scan-p dim" data-es="El texto y las imágenes se envían a Claude para que los lea. Este sitio no los guarda.">The text and pictures are sent to Claude so it can read them. This site doesn’t keep them.</p>
-        <button type="button" class="primary" id="scan-go" style="margin-top:18px" disabled data-es="Buscar cuentas">Find Bills</button>
+        <button type="button" class="primary" id="scan-go" style="margin-top:18px" disabled data-es="Buscar facturas">Find Bills</button>
       </section>
       <section id="scan-busy" hidden>
         <div class="busy"><p id="scan-msg" role="status" data-es="Leyendo…">Reading…</p><div class="progress indet" aria-hidden="true"><i></i></div></div>
@@ -519,21 +558,26 @@ function applyPaid(b,today){
   return nb;
 }
 function parseAmount(raw){
-  var s=String(raw==null?'':raw).replace(/[$\s]/g,'');
+  var s=String(raw==null?'':raw).replace(/[$₡¢\s]/g,'');
   /* A comma before the last 1-2 digits is a decimal comma (94,50 or 1.234,56), as written in much of Latin America. 1,200 still means twelve hundred. */
   if(/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s)) s=s.replace(/\./g,'').replace(',','.');
   else if(/^\d+,\d{1,2}$/.test(s)) s=s.replace(',','.');
-  else if(LANG==='es'&&/^\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,'');   /* 1.200 = 1200 when reading Spanish */
+  else if((LANG==='es'||CUR==='CRC')&&/^\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,'');   /* 1.200 = 1200 when reading Spanish, or when the list is in colones (they have no three-digit cents) */
   s=s.replace(/,/g,'');
   if(s==='') return {value:null};
-  if(!/^(\d+\.?\d{0,2}|\.\d{1,2})$/.test(s)) return {error:pt('Enter the amount using numbers, like 94.50.','Escribe el monto con números, por ejemplo 94.50.')};
+  if(!/^(\d+\.?\d{0,2}|\.\d{1,2})$/.test(s)) return {error:CUR==='CRC'?pt('Enter the amount using numbers, like 25000.','Escriba el monto con números, por ejemplo 25000.'):pt('Enter the amount using numbers, like 94.50.','Escriba el monto con números, por ejemplo 94,50.')};
   var v=Math.round(parseFloat(s)*100)/100;
   if(v>1e9) return {error:pt('That amount is too large.','Ese monto es demasiado grande.')};
   return {value:v};
 }
-var LANG='en',LOC='en-US',usd,dfShort,dfShortY,dfMD;
+var LANG='en',LOC='en-US',CUR='USD',curFmt,curWhole,dfShort,dfShortY,dfMD;
 function pt(en,es){return LANG==='es'?es:en;}
-function money(v){return v==null?'—':usd.format(v);}
+/* Colones are normally written without cents (₡25 000), so a whole number of colones shows no decimals. Dollars always show cents. */
+function money(v){
+  if(v==null)return '—';
+  if(CUR==='CRC'&&Math.round(v*100)%100===0)return curWhole.format(v);
+  return curFmt.format(v);
+}
 function sum(list){
   var t=0;
   list.forEach(function(b){t+=(b.amount||0);});
@@ -570,11 +614,14 @@ function leftThisMonth(bills,today){
   var ym=today.slice(0,7);
   return bills.filter(function(b){return !b.paid&&b.due>=today&&b.due.slice(0,7)===ym;});
 }
-/* English (US) or Spanish (US): same dollars, different words and date names */
-function setLocale(l){
+/* English (US) or Spanish (Costa Rica), in US dollars or Costa Rican colones */
+function setLocale(l,c){
   LANG=(l==='es')?'es':'en';
-  LOC=LANG==='es'?'es-US':'en-US';
-  usd=new Intl.NumberFormat(LOC,{style:'currency',currency:'USD'});
+  LOC=LANG==='es'?'es-CR':'en-US';
+  CUR=(c==='CRC')?'CRC':'USD';
+  var nf={style:'currency',currency:CUR,currencyDisplay:'narrowSymbol'};
+  curFmt=new Intl.NumberFormat(LOC,nf);
+  curWhole=new Intl.NumberFormat(LOC,{style:'currency',currency:CUR,currencyDisplay:'narrowSymbol',minimumFractionDigits:0,maximumFractionDigits:0});
   dfShort=new Intl.DateTimeFormat(LOC,{weekday:'short',month:'short',day:'numeric'});
   dfShortY=new Intl.DateTimeFormat(LOC,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
   dfMD=new Intl.DateTimeFormat(LOC,{month:'short',day:'numeric'});
@@ -626,8 +673,9 @@ function validateExtracted(raw,emails){
       if(rep==='none')rep='monthly';
       due=sent;
     }
-    var amt=(typeof r.amount==='number'&&isFinite(r.amount)&&r.amount>=0&&r.amount<1e7)?Math.round(r.amount*100)/100:null;
-    out.push({name:name,amount:amt,due:due,repeat:rep,kind:kind,sent:sent,subject:String(em.subject||'').slice(0,90)});
+    var amt=(typeof r.amount==='number'&&isFinite(r.amount)&&r.amount>=0&&r.amount<1e9)?Math.round(r.amount*100)/100:null;
+    var cur=(r.currency==='USD'||r.currency==='CRC')?r.currency:null;
+    out.push({name:name,amount:amt,cur:cur,due:due,repeat:rep,kind:kind,sent:sent,subject:String(em.subject||'').slice(0,90)});
   });
   return out;
 }
@@ -652,7 +700,7 @@ function pickThreads(threads,perSender,max){
   });
   return out.slice(0,max);
 }
-function mergeFound(items,existing,today){
+function mergeFound(items,existing,today,listCur){
   var groups=[];
   items.forEach(function(it){
     var k=normName(it.name);
@@ -671,8 +719,10 @@ function mergeFound(items,existing,today){
       if(ak!==bk)return bk-ak;
       return a.due<b.due?1:a.due>b.due?-1:0;
     });
-    var top=g[0],months={},amount=null;
-    g.forEach(function(x){months[x.due.slice(0,7)]=1;if(amount==null&&x.amount!=null)amount=x.amount;});
+    var top=g[0],months={},amount=null,acur=null,foreign=null;
+    g.forEach(function(x){months[x.due.slice(0,7)]=1;if(amount==null&&x.amount!=null){amount=x.amount;acur=x.cur||null;}});
+    /* The list is in one currency. An amount billed in the other one is not copied in (no guessing at an exchange rate); the screen says so instead. */
+    if(listCur&&amount!=null&&acur&&acur!==listCur){foreign={cur:acur,amount:amount};amount=null;}
     var kind=top.kind||'bill';
     var repeat=top.repeat;
     if(repeat==='none'&&Object.keys(months).length>=2)repeat='monthly';
@@ -692,11 +742,34 @@ function mergeFound(items,existing,today){
       due=p2.due;estimated=true;basis=kind;
     }
     var already=existing.some(function(b){return sameBiller(normName(b.name),k);});
-    out.push({name:top.name,amount:amount,due:due,repeat:repeat,kind:kind,estimated:estimated,basis:basis,from:from,past:past,already:already,
+    out.push({name:top.name,amount:amount,foreign:foreign,due:due,repeat:repeat,kind:kind,estimated:estimated,basis:basis,from:from,past:past,already:already,
       subject:top.subject,sent:top.sent,checked:!already&&!past});
   });
   out.sort(function(a,b){return a.due<b.due?-1:a.due>b.due?1:0;});
   return out;
+}
+/* --- bill type, from the name: decides which little picture goes next to a bill --- */
+var DIACRITICS=new RegExp('['+String.fromCharCode(768)+'-'+String.fromCharCode(879)+']','g');
+var KIND_RULES=[
+  ['insurance',/\b(seguros?|insurance|ins|geico|progressive|allstate|state farm|farmers|liberty mutual|aetna|cigna|ccss|caja)\b/],
+  ['internet',/\b(wi ?fi|internet|fibra|fiber|broadband|router|starlink|xfinity|spectrum|comcast|cox|telecable|racsa|banda ancha)\b/],
+  ['phone',/\b(phone|telefono|tel|celular|cel|movil|mobile|wireless|verizon|t mobile|at t|att|kolbi|movistar|claro|tigo|liberty|cricket|mint|visible|tracfone)\b/],
+  ['power',/\b(luz|electr\w*|power|energy|energia|ice|cnfl|jasec|esph|coopelesca|coopeguanacaste|coopesantos|coopealfaroruiz|pso|oge|aep|duke|solar)\b/],
+  ['water',/\b(agua|water|aya|asada|acueducto|alcantarillado|sewer|sewage|h2o|city of tulsa)\b/],
+  ['gas',/\b(gas|natural gas|gas natural|propano|propane|ong)\b/],
+  ['trash',/\b(basura|trash|garbage|waste|recoleccion|aseo|reciclaje|recycling|sanitation)\b/],
+  ['tv',/\b(netflix|hulu|disney|hbo|max|prime|youtube|apple tv|tv|television|cable|cabletica|streaming|paramount|peacock|crunchyroll|directv|dish|sky|spotify|apple music|deezer|tidal|pandora|music|musica)\b/],
+  ['health',/\b(salud|health|medic\w*|dental|dentist\w*|doctor|clinica|hospital|farmacia|pharmacy|gym|gimnasio|fitness)\b/],
+  ['home',/\b(alquiler|renta|rent|casa|house|hoa|condominio|condo|apartamento|apartment|vivienda|housing|lease|mantenimiento|maintenance|hipoteca|mortgage)\b/],
+  ['card',/\b(tarjeta|card|visa|mastercard|master card|amex|american express|discover|credit|capital one|chase|citi|bac)\b/],
+  ['car',/\b(carro|auto|automovil|vehiculo|vehicle|car|marchamo|parqueo|parking|peaje|toll|leasing|gasolina|uber|lyft|moto|llantas|tires)\b/],
+  ['loan',/\b(prestamo|loan|financiamiento|financing|credito|student|navient|mohela)\b/]
+];
+function billKind(name){
+  var t=String(name==null?'':name).toLowerCase().normalize('NFD').replace(DIACRITICS,'').replace(/[^a-z0-9]+/g,' ').trim();
+  if(!t)return 'bill';
+  for(var i=0;i<KIND_RULES.length;i++){if(KIND_RULES[i][1].test(t))return KIND_RULES[i][0];}
+  return 'bill';
 }
 /* ==PURE END== */
 
@@ -747,12 +820,12 @@ function applyStatic(){
     lb[i].setAttribute('aria-label',pt('Change language to Spanish','Cambiar el idioma a inglés'));
   }
   document.documentElement.setAttribute('lang',LANG);
-  document.title=pt('Bills','Cuentas');
+  document.title=pt('Bills','Facturas');
   var m=document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if(m)m.setAttribute('content',document.title);   /* the name iPhone suggests when adding to the Home Screen */
 }
 function setLang(l,save){
-  setLocale(l);
+  setLocale(l,profileCurrency(S.profile));
   if(save){try{localStorage.setItem(LANG_KEY,LANG);}catch(e){}}
   applyStatic();
   render();
@@ -770,7 +843,7 @@ function toBody(b){
 function queueWrite(fn){
   writeChain=writeChain.then(fn).catch(function(e){
     console.error(e);
-    toast(pt("Couldn't save that. Please try again.",'No se pudo guardar. Inténtalo de nuevo.'));
+    toast(pt("Couldn't save that. Please try again.",'No se pudo guardar. Inténtelo de nuevo.'));
   });
   return writeChain;
 }
@@ -782,11 +855,25 @@ function cachedName(){try{return localStorage.getItem(NAME_CACHE)||'';}catch(e){
 function cleanPersonName(s){return String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,30);}
 function titleText(){
   var n=S.profile&&S.profile.name?cleanPersonName(S.profile.name):(S.mode==='loading'?cachedName():'');
-  if(n)return pt(n+'’s Bills','Cuentas de '+n);
-  return S.mode==='loading'?pt('Bills','Cuentas'):pt('My Bills','Mis cuentas');
+  if(n)return pt(n+'’s Bills','Facturas de '+n);
+  return S.mode==='loading'?pt('Bills','Facturas'):pt('My Bills','Mis facturas');
 }
-function saveProfile(name){
-  var p={name:cleanPersonName(name),asked:true};
+function profileCurrency(p){return p&&p.currency==='CRC'?'CRC':'USD';}
+/* Only used to pre-select the choice the first time someone is asked: a phone set to Costa Rica probably wants colones. */
+function guessCurrency(){
+  var tz='',l=[];
+  try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(e){}
+  try{l=[].slice.call((navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||'']);}catch(e){}
+  return (tz==='America/Costa_Rica'||l.some(function(x){return /-CR$/i.test(String(x));}))?'CRC':'USD';
+}
+function applyCurrency(){var c=profileCurrency(S.profile);if(c!==CUR)setLocale(LANG,c);}
+function amountInput(v){
+  var t=(CUR==='CRC'&&Math.round(v*100)%100===0)?String(Math.round(v)):Number(v).toFixed(2);
+  return LANG==='es'?t.replace('.',','):t;
+}
+function saveProfile(name,currency){
+  var cur=(currency==='CRC'||currency==='USD')?currency:profileCurrency(S.profile);
+  var p={name:cleanPersonName(name),asked:true,currency:cur};
   S.profile=p;cacheName(p.name);
   if(S.col){
     queueWrite(function(){return S.col.doc('profile').set(p);});
@@ -817,6 +904,26 @@ var CHECK_SVG='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
 var CHEV_SVG='<svg class="chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l6 6-6 6"/></svg>';
 var CAL_SVG='<svg width="38" height="38" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="7" width="26" height="24" rx="4"/><path d="M5 14h26M12 4v6M24 4v6M12 22l4 4 8-8"/></svg>';
 
+var ICONS={
+  water:'<path d="M12 3.5c3 3.8 5.5 6.6 5.5 9.6a5.5 5.5 0 0 1-11 0c0-3 2.5-5.8 5.5-9.6z"/>',
+  power:'<path d="M13 3L5.5 13.2H11L10 21l7.5-10.2H12z"/>',
+  internet:'<path d="M3.5 9.2a12 12 0 0 1 17 0"/><path d="M6.5 12.5a7.8 7.8 0 0 1 11 0"/><path d="M9.4 15.6a3.6 3.6 0 0 1 5.2 0"/><circle cx="12" cy="18.7" r="1" fill="currentColor" stroke="none"/>',
+  phone:'<rect x="7" y="3" width="10" height="18" rx="2.4"/><path d="M10.5 18h3"/>',
+  gas:'<path d="M12 3c.6 3 4.5 4.8 4.5 9.2a4.5 4.5 0 0 1-9 0c0-1.8.8-3 1.8-4 .2 1.2.8 1.8 1.5 2C10.5 8 11 5.5 12 3z"/>',
+  trash:'<path d="M5 7h14M9.5 7V4.8h5V7M7 7l.8 12.2h8.4L17 7M10 10.5v5.5M14 10.5v5.5"/>',
+  home:'<path d="M4 11.2L12 4l8 7.2M6 9.8V20h12V9.8M10 20v-5.5h4V20"/>',
+  tv:'<rect x="3.5" y="5" width="17" height="11.5" rx="2.2"/><path d="M9 20h6M12 16.5V20"/><path d="M10.4 8.4v4.2l3.6-2.1z" fill="currentColor"/>',
+  card:'<rect x="3" y="6" width="18" height="12.5" rx="2.5"/><path d="M3 10.3h18M6.5 15h3.5"/>',
+  car:'<path d="M5 14.5l1.5-4.8A2 2 0 0 1 8.4 8.3h7.2a2 2 0 0 1 1.9 1.4l1.5 4.8"/><rect x="3.5" y="14.5" width="17" height="4" rx="1.6"/><circle cx="7.5" cy="16.5" r=".9" fill="currentColor" stroke="none"/><circle cx="16.5" cy="16.5" r=".9" fill="currentColor" stroke="none"/>',
+  insurance:'<path d="M12 3.5l7 2.6v5.6c0 4.2-2.9 7.3-7 8.8-4.1-1.5-7-4.6-7-8.8V6.1z"/><path d="M8.8 12l2.2 2.2 4.2-4.4"/>',
+  health:'<path d="M12 20s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>',
+  loan:'<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2.4"/><path d="M6.5 12h.01M17.5 12h.01"/>',
+  bill:'<path d="M6.5 3.5h11v17l-2.75-1.8-2.75 1.8-2.75-1.8-2.75 1.8z"/><path d="M9.5 8.5h5M9.5 12h5"/>'
+};
+function iconHtml(name){
+  var k=billKind(name);
+  return '<span class="bico k-'+k+'" data-kind="'+k+'" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+ICONS[k]+'</svg></span>';
+}
 function rowHtml(b,today){
   var paid=!!b.paid, pend=!!paying[b.id], sub;
   if(paid){
@@ -828,7 +935,7 @@ function rowHtml(b,today){
   }
   return '<li class="row'+(paid?' paid':'')+'" data-id="'+esc(b.id)+'">'+
     '<button type="button" class="check'+(paid?' on':pend?' pending':'')+'" data-act="paid" aria-label="'+(paid?pt('Mark '+esc(b.name)+' as not paid','Marcar '+esc(b.name)+' como no pagada'):pend?pt('Cancel marking '+esc(b.name)+' as paid','Cancelar: marcar '+esc(b.name)+' como pagada'):pt('Mark '+esc(b.name)+' as paid','Marcar '+esc(b.name)+' como pagada'))+'"><span class="ring">'+CHECK_SVG+'</span></button>'+
-    '<button type="button" class="row-main" data-act="edit"><span class="row-text"><span class="row-name">'+esc(b.name)+'</span>'+sub+'</span><span class="row-amt">'+money(b.amount)+'</span>'+CHEV_SVG+'</button>'+
+    '<button type="button" class="row-main" data-act="edit">'+iconHtml(b.name)+'<span class="row-text"><span class="row-name">'+esc(b.name)+'</span>'+sub+'</span><span class="row-amt">'+money(b.amount)+'</span>'+CHEV_SVG+'</button>'+
   '</li>';
 }
 function groupHtml(title,list,today,kind){
@@ -837,25 +944,33 @@ function groupHtml(title,list,today,kind){
     list.map(function(b){return rowHtml(b,today);}).join('')+'</ul></section>';
 }
 function tileHtml(label,list){
-  return '<div class="tile"><div class="tile-label">'+label+'</div><div class="tile-amt">'+money(sum(list))+'</div><div class="tile-sub">'+
-    (list.length?list.length+(list.length===1?pt(' bill',' cuenta'):pt(' bills',' cuentas')):pt('Nothing due','Nada por pagar'))+'</div></div>';
+  var amt=money(sum(list));
+  return '<div class="tile"><div class="tile-label">'+label+'</div><div class="tile-amt'+(amt.length>9?' long':'')+'">'+amt+'</div><div class="tile-sub">'+
+    (list.length?list.length+(list.length===1?pt(' bill',' factura'):pt(' bills',' facturas')):pt('Nothing due','Nada por pagar'))+'</div></div>';
 }
+var HINT_KEY='mybills.homeHint';
+function standalone(){try{return !!(navigator.standalone||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));}catch(e){return false;}}
+function onIOS(){var u='';try{u=navigator.userAgent||'';return /iPhone|iPad|iPod/i.test(u)||(/Macintosh/i.test(u)&&navigator.maxTouchPoints>1);}catch(e){return false;}}
+function hintDismissed(){try{return localStorage.getItem(HINT_KEY)==='1';}catch(e){return false;}}
+/* Safari forgets a website's saved login after about a week of not opening it. A Home Screen icon is exempt, so iPhone users are pointed there once. */
+function homeHint(){return onIOS()&&!standalone()&&!hintDismissed();}
 function bannersHtml(){
   var h='';
-  if(S.dbError) h+='<div class="banner" role="alert"><span>'+pt('Your saved bills can’t be loaded right now. Close this page and open it again in a moment.','No se pueden cargar tus cuentas guardadas en este momento. Cierra esta página y ábrela de nuevo en un momento.')+'</span></div>';
-  if(S.mode==='db'&&S.slow&&S.stale) h+='<div class="banner"><span>'+pt('Can’t reach your saved bills yet. What you see may be out of date.','Todavía no se pueden alcanzar tus cuentas guardadas. Lo que ves puede estar desactualizado.')+'</span></div>';
-  if(S.mode==='db'&&S.localFound>0) h+='<div class="banner"><span>'+pt('Found '+S.localFound+(S.localFound===1?' bill':' bills')+' saved on this phone.','Encontramos '+S.localFound+(S.localFound===1?' cuenta guardada':' cuentas guardadas')+' en este teléfono.')+'</span><button type="button" class="link-btn" data-act="import">'+pt('Move to my account','Pasar a mi cuenta')+'</button></div>';
-  if(S.bills.some(function(b){return b.example;})) h+='<div class="banner"><span>'+pt('These are example bills.','Estas son cuentas de ejemplo.')+'</span><button type="button" class="link-btn" data-act="remove-examples">'+pt('Remove examples','Quitar ejemplos')+'</button></div>';
+  if(S.dbError) h+='<div class="banner" role="alert"><span>'+pt('Your saved bills can’t be loaded right now. Close this page and open it again in a moment.','No se pueden cargar sus facturas guardadas en este momento. Cierre esta página y ábrala de nuevo en un momento.')+'</span></div>';
+  if(S.mode==='db'&&S.slow&&S.stale) h+='<div class="banner"><span>'+pt('Can’t reach your saved bills yet. What you see may be out of date.','Todavía no se pueden alcanzar sus facturas guardadas. Lo que ve puede estar desactualizado.')+'</span></div>';
+  if(S.mode==='db'&&S.localFound>0) h+='<div class="banner"><span>'+pt('Found '+S.localFound+(S.localFound===1?' bill':' bills')+' saved on this phone.','Encontramos '+S.localFound+(S.localFound===1?' factura guardada':' facturas guardadas')+' en este celular.')+'</span><button type="button" class="link-btn" data-act="import">'+pt('Move to my account','Pasar a mi cuenta')+'</button></div>';
+  if(S.mode==='db'&&homeHint()) h+='<div class="banner"><span class="banner-text">'+pt('To stay signed in, open this page in Safari, tap Share, then “Add to Home Screen.” Use the new icon from then on, and sign in once more there.','Para no tener que iniciar sesión cada vez, abra esta página en Safari, toque Compartir y luego “Agregar a pantalla de inicio”. Use el ícono nuevo de ahí en adelante e inicie sesión una vez más allí.')+'</span><button type="button" class="link-btn" data-act="hint-ok">'+pt('Got it','Entendido')+'</button></div>';
+  if(S.bills.some(function(b){return b.example;})) h+='<div class="banner"><span>'+pt('These are example bills.','Estas son facturas de ejemplo.')+'</span><button type="button" class="link-btn" data-act="remove-examples">'+pt('Remove examples','Quitar ejemplos')+'</button></div>';
   return h;
 }
 function skeletonHtml(){
   var row='<li class="row skel"><span class="check"><span class="ring"></span></span><span class="row-main"><span class="row-text"><span class="skel-bar" style="width:46%"></span><span class="skel-bar" style="width:70%"></span></span><span class="skel-bar" style="width:56px"></span></span></li>';
-  return '<div class="sr-only" role="status">'+pt('Loading your bills','Cargando tus cuentas')+'</div><section class="group"><ul class="list" aria-hidden="true">'+row+row+row+'</ul></section>'+
-    (S.slow?'<p class="foot">'+pt('Still trying to reach your saved bills…','Todavía intentando llegar a tus cuentas guardadas…')+'</p>':'');
+  return '<div class="sr-only" role="status">'+pt('Loading your bills','Cargando sus facturas')+'</div><section class="group"><ul class="list" aria-hidden="true">'+row+row+row+'</ul></section>'+
+    (S.slow?'<p class="foot">'+pt('Still trying to reach your saved bills…','Todavía intentando llegar a sus facturas guardadas…')+'</p>':'');
 }
 function emptyHtml(){
-  return '<section class="empty"><div class="empty-icon">'+CAL_SVG+'</div><h2>'+pt('No bills yet','Aún no hay cuentas')+'</h2><p>'+pt('Tap Add a Bill below to enter your first one. It will show up here with its due date and amount.','Toca “Agregar una cuenta” abajo para añadir la primera. Aparecerá aquí con su fecha y monto.')+'</p>'+
-    '<button type="button" class="link-btn" data-act="examples">'+pt('See how it looks with example bills','Ver cómo se ve con cuentas de ejemplo')+'</button></section>';
+  return '<section class="empty"><div class="empty-icon">'+CAL_SVG+'</div><h2>'+pt('No bills yet','Aún no hay facturas')+'</h2><p>'+pt('Tap Add a Bill below to enter your first one. It will show up here with its due date and amount.','Toque “Agregar una factura” abajo para añadir la primera. Aparecerá aquí con su fecha y monto.')+'</p>'+
+    '<button type="button" class="link-btn" data-act="examples">'+pt('See how it looks with example bills','Ver cómo se ve con facturas de ejemplo')+'</button></section>';
 }
 function longDate(d){
   var s=new Intl.DateTimeFormat(LOC,{weekday:'long',month:'long',day:'numeric'}).format(d);
@@ -864,8 +979,13 @@ function longDate(d){
 function render(){
   var now=new Date(), today=ymd(now);
   shownDay=today;
+  applyCurrency();
   $('today-line').textContent=longDate(now);
-  if(S.mode==='auth'){$('content').innerHTML='';$('title-text').textContent=pt('Bills','Cuentas');return;}
+  if(S.mode==='auth'){$('content').innerHTML='';$('title-text').textContent=pt('Bills','Facturas');return;}
+  var cb=$('cur-btn');
+  cb.textContent=CUR==='CRC'?'₡':'$';
+  cb.hidden=(S.mode==='loading');
+  cb.setAttribute('aria-label',CUR==='CRC'?pt('Currency: colones. Change','Moneda: colones. Cambiar'):pt('Currency: US dollars. Change','Moneda: dólares. Cambiar'));
   $('rem-btn').hidden=(S.mode==='loading'||!FEATURES.reminders);
   $('scan-btn').hidden=(S.mode!=='db');   /* needs the signed-in account: the reading happens in a server function */
   document.body.classList.toggle('two-bar',S.mode==='db');
@@ -884,11 +1004,11 @@ function render(){
       if(g.overdue.length) html+=groupHtml(pt('Overdue','Vencidas'),g.overdue,today,'overdue');
       if(g.soon.length) html+=groupHtml(pt('Next 7 days','Próximos 7 días'),g.soon,today);
       if(g.later.length) html+=groupHtml(pt('Later','Más adelante'),g.later,today);
-      if(!open) html+='<div class="done"><strong>'+pt('You’re all caught up','Estás al día')+'</strong><span>'+pt('Nothing left to pay right now.','No queda nada por pagar por ahora.')+'</span></div>';
+      if(!open) html+='<div class="done"><strong>'+pt('You’re all caught up','Está al día')+'</strong><span>'+pt('Nothing left to pay right now.','No queda nada por pagar por ahora. ¡Pura vida!')+'</span></div>';
       if(g.paid.length) html+=groupHtml(pt('Paid','Pagadas'),g.paid,today,'paid');
     }
-    if(S.mode==='local') html+='<p class="foot">'+pt('Your bills are saved on this phone only, so they won’t show up on your other devices. If you clear this browser’s data, they will be erased.','Tus cuentas se guardan solo en este teléfono, así que no aparecerán en tus otros dispositivos. Si borras los datos de este navegador, se perderán.')+'</p>';
-    if(S.mode==='db'&&S.email) html+='<p class="foot">'+pt('Signed in as ','Sesión iniciada como ')+esc(S.email)+'. <button type="button" class="link-btn" data-act="signout">'+pt('Sign out','Cerrar sesión')+'</button></p>';
+    if(S.mode==='local') html+='<p class="foot">'+pt('Your bills are saved on this phone only, so they won’t show up on your other devices. If you clear this browser’s data, they will be erased.','Sus facturas se guardan solo en este celular, así que no aparecerán en sus otros dispositivos. Si borra los datos de este navegador, se perderán.')+'</p>';
+    if(S.mode==='db'&&S.email) html+='<p class="foot">'+pt('Signed in as ','Sesión iniciada como ')+esc(S.email)+'. <button type="button" class="link-btn" data-act="signout">'+pt('Sign out','Cerrar sesión')+'</button> <button type="button" class="link-btn" data-act="settings">'+pt('Settings','Ajustes')+'</button></p>';
   }
   $('title-text').textContent=titleText();
   $('title-btn').disabled=(S.mode==='loading');
@@ -955,11 +1075,11 @@ function payWithAnimation(btn,id){
   },PAY_DELAY);
 }
 function exampleBills(today){
-  function mk(name,amount,ahead){
+  function mk(name,usd,crc,ahead){
     var due=addDays(today,ahead);
-    return {id:newId(),name:name,amount:amount,due:due,repeat:'monthly',anchorDay:+due.slice(8),paid:false,lastPaid:null,example:true};
+    return {id:newId(),name:name,amount:CUR==='CRC'?crc:usd,due:due,repeat:'monthly',anchorDay:+due.slice(8),paid:false,lastPaid:null,example:true};
   }
-  return [mk(pt('Phone','Teléfono'),65,-2),mk(pt('Electric','Luz'),94.5,3),mk(pt('Rent','Alquiler'),1200,9),mk('Streaming',15.99,20)];
+  return [mk(pt('Phone','Teléfono'),65,18500,-2),mk(pt('Electric','Luz'),94.5,24750,3),mk(pt('Water','Agua'),38,9800,6),mk('Internet',60,22900,12),mk(pt('Rent','Alquiler'),1200,280000,19)];
 }
 function addExamples(){exampleBills(ymd(new Date())).forEach(putBill);}
 function removeExamples(){S.bills.filter(function(b){return b.example;}).forEach(function(b){removeBill(b.id);});}
@@ -985,7 +1105,7 @@ function openSheet(scrimId,focusId){
 function closeSheet(){
   if(!openScrim)return;
   if(openScrim.id==='scan-scrim'){stopScan();clearScanInput();}
-  if(openScrim.id==='name-scrim'&&!(S.profile&&S.profile.asked))saveProfile('');
+  if(openScrim.id==='name-scrim'&&!(S.profile&&S.profile.asked))saveProfile('',$('f-ucur').value);
   openScrim.hidden=true;openScrim=null;
   document.documentElement.style.overflow='';
   if(lastFocus&&lastFocus.focus&&document.contains(lastFocus))lastFocus.focus({preventScroll:true});
@@ -1014,14 +1134,16 @@ $('rem-cancel').addEventListener('click',closeSheet);
 $('name-cancel').addEventListener('click',closeSheet);
 
 /* name form */
-function openName(){
+function openName(focusId){
   $('f-uname').value=(S.profile&&S.profile.name)||'';
-  openSheet('name-scrim','f-uname');
+  $('f-ucur').value=(S.profile&&S.profile.asked)?profileCurrency(S.profile):guessCurrency();
+  openSheet('name-scrim',typeof focusId==='string'?focusId:'f-uname');
 }
-$('title-btn').addEventListener('click',openName);
+$('title-btn').addEventListener('click',function(){openName();});
+$('cur-btn').addEventListener('click',function(){openName('f-ucur');});
 $('name-form').addEventListener('submit',function(e){
   e.preventDefault();
-  saveProfile($('f-uname').value);
+  saveProfile($('f-uname').value,$('f-ucur').value);
   closeSheet();
 });
 function maybeAskName(){
@@ -1038,16 +1160,18 @@ function showFormError(en,es,fieldId){
 function openBill(id){
   var b=id?find(id):null;
   curId=b?b.id:null;
-  pair($('bill-title'),b?'Edit Bill':'New Bill',b?'Editar cuenta':'Nueva cuenta');
+  pair($('bill-title'),b?'Edit Bill':'New Bill',b?'Editar factura':'Nueva factura');
   $('f-name').value=b?b.name:'';
-  $('f-amount').value=(b&&b.amount!=null)?Number(b.amount).toFixed(2):'';
+  $('f-sym').textContent=CUR==='CRC'?'₡':'$';
+  $('f-amount').setAttribute('placeholder',CUR==='CRC'?'0':(LANG==='es'?'0,00':'0.00'));
+  $('f-amount').value=(b&&b.amount!=null)?amountInput(b.amount):'';
   $('f-due').value=b?b.due:ymd(new Date());
   $('f-repeat').value=b?(b.repeat||'none'):'monthly';
   $('f-error').hidden=true;
   $('del-start').hidden=false;$('del-confirm').hidden=true;
   $('delete-zone').hidden=!b;
   var hintEn='Not sure of the exact amount? An estimate is fine. You can change it later.';
-  var hintEs='¿No sabes el monto exacto? Un estimado está bien. Lo puedes cambiar después.';
+  var hintEs='¿No sabe el monto exacto? Un estimado está bien. Lo puede cambiar después.';
   if(b&&b.lastPaid){var lp=fmtDate(b.lastPaid,ymd(new Date()));hintEn='Last paid '+lp+'. '+hintEn;hintEs='Último pago: '+lp+'. '+hintEs;}
   pair($('f-hint'),hintEn,hintEs);
   openSheet('bill-scrim',b?null:'f-name');
@@ -1055,11 +1179,11 @@ function openBill(id){
 $('bill-form').addEventListener('submit',function(e){
   e.preventDefault();
   var name=$('f-name').value.trim();
-  if(!name)return showFormError('Enter a name for this bill, like Electric.','Escribe un nombre para esta cuenta, por ejemplo Luz.','f-name');
+  if(!name)return showFormError('Enter a name for this bill, like Electric.','Escriba un nombre para esta factura, por ejemplo Luz.','f-name');
   var a=parseAmount($('f-amount').value);
   if(a.error)return showFormError(a.error,a.error,'f-amount');
   var due=$('f-due').value, yr=+due.slice(0,4);
-  if(!isYmd(due)||yr<2000||yr>2100)return showFormError('Pick the date this bill is due.','Elige la fecha en que vence esta cuenta.','f-due');
+  if(!isYmd(due)||yr<2000||yr>2100)return showFormError('Pick the date this bill is due.','Elija la fecha en que vence esta factura.','f-due');
   var old=curId?find(curId):null;
   var repeat=$('f-repeat').value;
   putBill({
@@ -1089,7 +1213,7 @@ function renderRemStatus(){
     var d=new Date(st);
     if(!isNaN(d)){
       var when=new Intl.DateTimeFormat(LOC,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d);
-      en='Bills last checked for reminders: '+when+'.';es='Última revisión de cuentas para recordatorios: '+when+'.';
+      en='Bills last checked for reminders: '+when+'.';es='Última revisión de facturas para recordatorios: '+when+'.';
     }
   }
   pair($('rm-status'),en,es);
@@ -1118,8 +1242,8 @@ $('rem-form').addEventListener('submit',function(e){
   if(S.mode!=='db')return;
   var enabled=$('rm-enabled').checked, email=$('rm-email').value.trim();
   var days=[7,3,1,0].filter(function(d){return $('rm-d'+d).checked;});
-  if(enabled&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return remFail('Enter the email address where reminders should go.','Escribe el correo donde quieres recibir los recordatorios.','rm-email');
-  if(enabled&&!days.length)return remFail('Choose at least one time for a reminder.','Elige al menos un momento para el recordatorio.','rm-d3');
+  if(enabled&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return remFail('Enter the email address where reminders should go.','Escriba el correo donde quiere recibir los recordatorios.','rm-email');
+  if(enabled&&!days.length)return remFail('Choose at least one time for a reminder.','Elija al menos un momento para el recordatorio.','rm-d3');
   var body={enabled:enabled,email:email,days:days};
   var ref=S.col.doc('reminders');
   var exists=!!S.settings;
@@ -1194,7 +1318,7 @@ async function addImages(files){
   var list=[].slice.call(files||[]).filter(function(f){return f&&(!f.type||/^image\//.test(f.type));});
   if(!list.length){if(files&&files.length)showInputErr('That file isn’t a picture.','Ese archivo no es una imagen.');return;}
   var room=SCAN_MAX_IMAGES-scan.images.length;
-  if(room<=0){showInputErr('You can add up to 3 pictures.','Puedes agregar hasta 3 imágenes.');return;}
+  if(room<=0){showInputErr('You can add up to 3 pictures.','Puede agregar hasta 3 imágenes.');return;}
   var tooMany=list.length>room, failed=0, token=scan.token;
   list=list.slice(0,room);
   showInputErr('');
@@ -1208,8 +1332,8 @@ async function addImages(files){
   }
   scan.pending--;
   renderThumbs();updateScanGo();
-  if(failed)showInputErr('Couldn’t open that picture. Try a screenshot instead.','No se pudo abrir esa imagen. Prueba con una captura de pantalla.');
-  else if(tooMany)showInputErr('You can add up to 3 pictures.','Puedes agregar hasta 3 imágenes.');
+  if(failed)showInputErr('Couldn’t open that picture. Try a screenshot instead.','No se pudo abrir esa imagen. Pruebe con una captura de pantalla.');
+  else if(tooMany)showInputErr('You can add up to 3 pictures.','Puede agregar hasta 3 imágenes.');
 }
 async function callScan(payload){
   var r=await sb.functions.invoke('scan-bill',{body:payload});
@@ -1235,15 +1359,15 @@ async function runScan(){
   scan.busy=true;
   showScan('busy');
   try{
-    var payload={images:scan.images.map(function(im){return {media_type:im.media_type,data:im.b64};}),today:today,lang:LANG};
+    var payload={images:scan.images.map(function(im){return {media_type:im.media_type,data:im.b64};}),today:today,lang:LANG,currency:CUR};
     if(text.length>=10)payload.text=text;
     var data=await withTimeout(callScan(payload),SCAN_WAIT_MS);
     if(token!==scan.token)return;
     var raw=(data&&Array.isArray(data.bills)?data.bills:[]).map(function(b){
-      return {email:1,kind:b.kind,name:b.name,amount:b.amount,date:b.date,repeat:b.repeat};
+      return {email:1,kind:b.kind,name:b.name,amount:b.amount,currency:b.currency,date:b.date,repeat:b.repeat};
     });
     var extracted=validateExtracted(raw,[{date:today,subject:'',sender:''}]);
-    showResults(mergeFound(extracted,S.bills.filter(function(b){return !b.example;}),today),raw.length);
+    showResults(mergeFound(extracted,S.bills.filter(function(b){return !b.example;}),today,CUR),raw.length);
   }catch(e){
     if(token!==scan.token)return;
     showScanError(e);
@@ -1254,19 +1378,19 @@ async function runScan(){
 function scanMessage(e){
   switch(e&&e.code){
     case 'limit':
-      return [pt('That’s all for today','Eso es todo por hoy'),pt('Add from Email can only be used a few times a day. Try again tomorrow, or use Add a Bill.','Agregar desde correo solo se puede usar unas cuantas veces al día. Inténtalo mañana, o usa Agregar una cuenta.')];
+      return [pt('That’s all for today','Eso es todo por hoy'),pt('Add from Email can only be used a few times a day. Try again tomorrow, or use Add a Bill.','Agregar desde correo solo se puede usar unas cuantas veces al día. Inténtelo mañana, o use Agregar una factura.')];
     case 'busy':
-      return [pt('Claude is busy','Claude está ocupado'),pt('Try again in a minute. Nothing was added.','Inténtalo de nuevo en un minuto. No se agregó nada.')];
+      return [pt('Claude is busy','Claude está ocupado'),pt('Try again in a minute. Nothing was added.','Inténtelo de nuevo en un minuto. No se agregó nada.')];
     case 'not_configured':
-      return [pt('Not available yet','Todavía no está disponible'),pt('This part of the site isn’t set up yet. Ask the person who runs it.','Esta parte del sitio aún no está configurada. Pregúntale a quien lo administra.')];
+      return [pt('Not available yet','Todavía no está disponible'),pt('This part of the site isn’t set up yet. Ask the person who runs it.','Esta parte del sitio aún no está configurada. Pregúntele a quien lo administra.')];
     case 'too_big':
-      return [pt('That’s too much to read at once','Es demasiado para leer de una vez'),pt('Use fewer or smaller pictures, or paste less text. Then try again.','Usa menos imágenes, o más pequeñas, o pega menos texto. Luego inténtalo de nuevo.')];
+      return [pt('That’s too much to read at once','Es demasiado para leer de una vez'),pt('Use fewer or smaller pictures, or paste less text. Then try again.','Use menos imágenes, o más pequeñas, o pegue menos texto. Luego inténtelo de nuevo.')];
     case 'unauthorized':
-      return [pt('Please sign in again','Inicia sesión de nuevo'),pt('Your sign-in has expired. Sign out at the bottom of the list, sign back in, and try again.','Tu sesión expiró. Cierra sesión al final de la lista, vuelve a iniciar y reintenta.')];
+      return [pt('Please sign in again','Inicie sesión de nuevo'),pt('Your sign-in has expired. Sign out at the bottom of the list, sign back in, and try again.','Su sesión expiró. Cierre sesión al final de la lista, vuelva a iniciar y reintente.')];
     case 'network':case 'timeout':
-      return [pt('Couldn’t connect','No se pudo conectar'),pt('Check your connection and try again. Nothing was added.','Revisa tu conexión e inténtalo de nuevo. No se agregó nada.')];
+      return [pt('Couldn’t connect','No se pudo conectar'),pt('Check your connection and try again. Nothing was added.','Revise su conexión e inténtelo de nuevo. No se agregó nada.')];
     default:
-      return [pt('The scan didn’t finish','No se pudo terminar'),pt('Nothing was added. Try again in a minute.','No se agregó nada. Inténtalo de nuevo en un minuto.')];
+      return [pt('The scan didn’t finish','No se pudo terminar'),pt('Nothing was added. Try again in a minute.','No se agregó nada. Inténtelo de nuevo en un minuto.')];
   }
 }
 function showScanError(e){
@@ -1276,26 +1400,33 @@ function showScanError(e){
   showScan('error');
   $('scan-retry').focus();
 }
+function curWord(c,es){return c==='CRC'?'colones':(es?'dólares':'dollars');}
+function fmtForeign(f){
+  var o={style:'currency',currency:f.cur,currencyDisplay:'narrowSymbol'};
+  if(f.cur==='CRC'&&Math.round(f.amount*100)%100===0){o.minimumFractionDigits=0;o.maximumFractionDigits=0;}
+  try{return new Intl.NumberFormat(LOC,o).format(f.amount);}catch(e){return String(f.amount);}
+}
 function scanNote(it){
-  if(it.already)return pt('Already in your list','Ya está en tu lista');
+  if(it.already)return pt('Already in your list','Ya está en su lista');
   if(it.past)return pt('The due date has passed','La fecha de vencimiento ya pasó');
-  if(it.basis==='receipt')return pt('Based on your payment on '+fmtMD(it.from)+'. Check the date.','Según tu pago del '+fmtMD(it.from)+'. Revisa la fecha.');
-  if(it.basis==='statement')return pt('No due date is shown. Check it.','No aparece la fecha de vencimiento. Revísala.');
-  if(it.basis==='rolled')return pt('The date shown has passed, so this is the next one. Check it.','La fecha indicada ya pasó, así que esta es la siguiente. Revísala.');
+  if(it.foreign)return pt('Billed in '+curWord(it.foreign.cur)+' ('+fmtForeign(it.foreign)+'). Your list is in '+curWord(CUR)+', so the amount is left blank.','Se cobra en '+curWord(it.foreign.cur,1)+' ('+fmtForeign(it.foreign)+'). Su lista es en '+curWord(CUR,1)+', así que el monto queda en blanco.');
+  if(it.basis==='receipt')return pt('Based on your payment on '+fmtMD(it.from)+'. Check the date.','Según su pago del '+fmtMD(it.from)+'. Revise la fecha.');
+  if(it.basis==='statement')return pt('No due date is shown. Check it.','No aparece la fecha de vencimiento. Revísela.');
+  if(it.basis==='rolled')return pt('The date shown has passed, so this is the next one. Check it.','La fecha indicada ya pasó, así que esta es la siguiente. Revísela.');
   return '';
 }
 function showResults(found,readCount){
   var today=ymd(new Date()), n=found.length;
   scan.items=found;
-  $('scan-found').textContent=n?pt('Found '+n+(n===1?' bill.':' bills.'),n===1?'Se encontró 1 cuenta.':'Se encontraron '+n+' cuentas.'):pt('No bills found.','No se encontraron cuentas.');
-  $('scan-help').textContent=n?pt('Uncheck any you don’t want, then tap Add. You can change the details later.','Desmarca las que no quieras y toca Agregar. Puedes cambiar los detalles después.'):
-    (readCount?pt('Claude found no upcoming bill with a due date. If the bill is older than about six weeks, use Add a Bill instead.','Claude no encontró ninguna cuenta próxima con fecha de vencimiento. Si la cuenta tiene más de seis semanas, usa Agregar una cuenta.'):
-      pt('Claude didn’t see a bill in what you sent. Try a clearer picture, or paste the whole email.','Claude no vio ninguna cuenta en lo que enviaste. Prueba con una imagen más clara, o pega el correo completo.'));
+  $('scan-found').textContent=n?pt('Found '+n+(n===1?' bill.':' bills.'),n===1?'Se encontró 1 factura.':'Se encontraron '+n+' facturas.'):pt('No bills found.','No se encontraron facturas.');
+  $('scan-help').textContent=n?pt('Uncheck any you don’t want, then tap Add. You can change the details later.','Desmarque las que no quiera y toque Agregar. Puede cambiar los detalles después.'):
+    (readCount?pt('Claude found no upcoming bill with a due date. If the bill is older than about six weeks, use Add a Bill instead.','Claude no encontró ninguna factura próxima con fecha de vencimiento. Si la factura tiene más de seis semanas, use Agregar una factura.'):
+      pt('Claude didn’t see a bill in what you sent. Try a clearer picture, or paste the whole email.','Claude no vio ninguna factura en lo que envió. Pruebe con una imagen más clara, o pegue el correo completo.'));
   $('scan-list').innerHTML=found.map(function(it,i){
     var rep=it.repeat&&it.repeat!=='none'?' · '+repShort(it.repeat):'';
-    var warn=!it.already&&!it.past&&(it.basis==='receipt'||it.basis==='statement'||it.basis==='rolled');
+    var warn=!it.already&&!it.past&&(!!it.foreign||it.basis==='receipt'||it.basis==='statement'||it.basis==='rolled');
     var note=scanNote(it);
-    return '<li><label class="scan-item"><input type="checkbox" class="scan-cb" data-i="'+i+'"'+(it.checked?' checked':'')+'>'+
+    return '<li><label class="scan-item"><input type="checkbox" class="scan-cb" data-i="'+i+'"'+(it.checked?' checked':'')+'>'+iconHtml(it.name)+
       '<span class="row-text"><span class="row-name">'+esc(it.name)+'</span><span class="row-sub">'+pt('Due ','Vence ')+esc(fmtDate(it.due,today))+esc(rep)+'</span>'+
       (note?'<span class="row-sub scan-note'+(warn?' warn':'')+'">'+esc(note)+'</span>':'')+'</span>'+
       '<span class="row-amt">'+esc(money(it.amount))+'</span></label></li>';
@@ -1308,7 +1439,7 @@ function showResults(found,readCount){
 }
 function updateAddCount(){
   var n=$('scan-list').querySelectorAll('.scan-cb:checked').length;
-  $('scan-add').textContent=n?pt('Add '+n+(n===1?' Bill':' Bills'),'Agregar '+n+(n===1?' cuenta':' cuentas')):pt('Select bills to add','Elige cuentas para agregar');
+  $('scan-add').textContent=n?pt('Add '+n+(n===1?' Bill':' Bills'),'Agregar '+n+(n===1?' factura':' facturas')):pt('Select bills to add','Elija facturas para agregar');
   $('scan-add').disabled=!n;
 }
 function addFound(){
@@ -1320,7 +1451,7 @@ function addFound(){
     n++;
   });
   closeSheet();
-  if(n)toast(pt('Added '+n+(n===1?' bill.':' bills.'),n===1?'Se agregó 1 cuenta.':'Se agregaron '+n+' cuentas.'));
+  if(n)toast(pt('Added '+n+(n===1?' bill.':' bills.'),n===1?'Se agregó 1 factura.':'Se agregaron '+n+' facturas.'));
 }
 $('scan-btn').addEventListener('click',openScan);
 $('scan-close').addEventListener('click',closeSheet);
@@ -1367,6 +1498,8 @@ $('content').addEventListener('click',function(e){
     case 'remove-examples':removeExamples();break;
     case 'import':importLocal();break;
     case 'signout':signOut();break;
+    case 'settings':openName();break;
+    case 'hint-ok':try{localStorage.setItem(HINT_KEY,'1');}catch(e){}render();break;
   }
 });
 document.addEventListener('visibilitychange',function(){
@@ -1420,6 +1553,10 @@ function makeStore(sb,uid){
     var res=await sb.from('docs').select('id,data').eq('user_id',uid);
     if(stopped)return;
     if(res.error)throw res.error;
+    /* If the login lapsed while this was running, an empty answer could be a stand-in, not the real list. Keep what is on screen instead. */
+    var ses=await sb.auth.getSession();
+    if(stopped)return;
+    if(!(ses&&ses.data&&ses.data.session&&ses.data.session.user&&ses.data.session.user.id===uid))throw new Error('signed out');
     if(inflight>0){stale=true;return;}
     rows={};
     (res.data||[]).forEach(function(r){rows[r.id]=r.data;});
@@ -1472,6 +1609,19 @@ function makeStore(sb,uid){
 }
 
 var sb=null, store=null, authEmail='', resendTimer=null;
+/* Reading the code means leaving this page for the Mail app, and the phone may close the page meanwhile. So the email that is waiting for a code is kept
+   on the device for a while; coming back lands on the code box, not on a blank sign-in form. */
+var PENDING_KEY='mybills.pendingCode', LAST_EMAIL_KEY='mybills.lastEmail', CODE_LIFE=55*60*1000;
+function savePending(email){try{localStorage.setItem(PENDING_KEY,JSON.stringify({email:email,at:Date.now()}));localStorage.setItem(LAST_EMAIL_KEY,email);}catch(e){}}
+function readPending(){
+  try{
+    var o=JSON.parse(localStorage.getItem(PENDING_KEY)||'null'), age=o?Date.now()-o.at:-1;
+    if(o&&typeof o.email==='string'&&o.email&&age>=0&&age<CODE_LIFE)return o;
+  }catch(e){}
+  return null;
+}
+function clearPending(){try{localStorage.removeItem(PENDING_KEY);}catch(e){}}
+function lastEmail(){try{return localStorage.getItem(LAST_EMAIL_KEY)||'';}catch(e){return '';}}
 function startCloud(col){
   S.col=col;S.mode='loading';S.slow=false;S.dbError=false;
   render();
@@ -1511,18 +1661,28 @@ function showAuth(){
   if(store){try{store.stop();}catch(e){}store=null;}
   S.mode='auth';S.col=null;S.uid=null;S.email='';S.bills=[];S.settings=null;S.profile=null;
   S.firstDone=false;S.importChecked=false;S.askedName=false;S.localFound=0;S.dbError=false;S.slow=false;
+  recovering=false;clearTimeout(recoverTimer);
   cacheName('');
   closeSheetQuiet();
   render();setAuthVisible(true);showAuthStep('email');
+  var pend=readPending();
+  if(pend){authEmail=pend.email;$('a-email').value=pend.email;showCodeStep(false);}
+  else if(lastEmail())$('a-email').value=lastEmail();
+}
+function showCodeStep(justSent){
+  pair($('a-sent'),'We sent a 6-digit code to '+authEmail+'. It can take a minute to arrive. Check your spam folder too.','Enviamos un código de 6 dígitos a '+authEmail+'. Puede tardar un minuto en llegar. Revise también la carpeta de correo no deseado (spam).');
+  showAuthStep('code');
+  if(justSent)startResendWait();
+  else{clearInterval(resendTimer);$('a-resend').disabled=false;setResendLabel(0);}
 }
 function authFail(id,en,es){setMsg(id,en,es);}
 function friendlyAuthError(err,when){
   var code=String((err&&err.code)||''), status=err&&err.status, msg=String((err&&err.message)||'').toLowerCase();
-  if(status===429||/rate_limit/.test(code)||/rate limit|too many/.test(msg))return ['Too many tries. Please wait a minute, then try again.','Demasiados intentos. Espera un minuto y vuelve a intentarlo.'];
-  if(/not authorized|not allowed/.test(msg))return ['This email can’t sign in yet. Ask the person who runs this site to add you.','Este correo todavía no puede iniciar sesión. Pídele a quien administra este sitio que te agregue.'];
+  if(status===429||/rate_limit/.test(code)||/rate limit|too many/.test(msg))return ['Too many tries. Please wait a minute, then try again.','Demasiados intentos. Espere un minuto y vuelva a intentarlo.'];
+  if(/not authorized|not allowed/.test(msg))return ['This email can’t sign in yet. Ask the person who runs this site to add you.','Este correo todavía no puede iniciar sesión. Pídale a quien administra este sitio que lo agregue.'];
   /* Supabase says "expired or invalid" for a mistyped code too, so don't claim which one it was */
-  if(when==='verify')return ['That code didn’t work. Check the digits, or tap “Send a new code” and use the newest email.','Ese código no funcionó. Revisa los dígitos, o toca “Enviar un código nuevo” y usa el correo más reciente.'];
-  return ['We couldn’t send the code. Check your email address and try again.','No pudimos enviar el código. Revisa tu correo e inténtalo de nuevo.'];
+  if(when==='verify')return ['That code didn’t work. Check the digits, or tap “Send a new code” and use the newest email.','Ese código no funcionó. Revise los dígitos, o toque “Enviar un código nuevo” y use el correo más reciente.'];
+  return ['We couldn’t send the code. Check your email address and try again.','No pudimos enviar el código. Revise su correo e inténtelo de nuevo.'];
 }
 async function sendCode(email){
   var r=await sb.auth.signInWithOtp({email:email,options:{shouldCreateUser:true}});
@@ -1545,28 +1705,27 @@ $('auth-email-form').addEventListener('submit',async function(e){
   e.preventDefault();
   var email=$('a-email').value.trim().toLowerCase();
   $('a-error').hidden=true;
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){authFail('a-error','Enter your email address, like name@example.com.','Escribe tu correo, por ejemplo nombre@ejemplo.com.');$('a-email').focus();return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){authFail('a-error','Enter your email address, like name@example.com.','Escriba su correo, por ejemplo nombre@ejemplo.com.');$('a-email').focus();return;}
   $('a-send').disabled=true;$('a-send').textContent=pt('Sending…','Enviando…');
   var err=null;
   try{err=await sendCode(email);}catch(x){err=x||{};}
   $('a-send').disabled=false;$('a-send').textContent=stat('a-send');
   if(err){var m1=friendlyAuthError(err,'send');authFail('a-error',m1[0],m1[1]);return;}
-  authEmail=email;
-  pair($('a-sent'),'We sent a 6-digit code to '+email+'. It can take a minute to arrive. Check your spam folder too.','Enviamos un código de 6 dígitos a '+email+'. Puede tardar un minuto en llegar. Revisa también la carpeta de correo no deseado.');
-  showAuthStep('code');startResendWait();$('a-code').focus();
+  authEmail=email;savePending(email);
+  showCodeStep(true);$('a-code').focus();
 });
 $('auth-code-form').addEventListener('submit',async function(e){
   e.preventDefault();
   var code=$('a-code').value.replace(/\s+/g,'');
   $('a-code-error').hidden=true;
-  if(!/^\d{6,10}$/.test(code)){authFail('a-code-error','Enter the 6-digit code from the email.','Escribe el código de 6 dígitos del correo.');$('a-code').focus();return;}
+  if(!/^\d{6,10}$/.test(code)){authFail('a-code-error','Enter the 6-digit code from the email.','Escriba el código de 6 dígitos del correo.');$('a-code').focus();return;}
   $('a-verify').disabled=true;$('a-verify').textContent=pt('Signing in…','Iniciando sesión…');
   var res=null,err=null;
   try{res=await sb.auth.verifyOtp({email:authEmail,token:code,type:'email'});err=res&&res.error;}catch(x){err=x||{};}
   $('a-verify').disabled=false;$('a-verify').textContent=stat('a-verify');
   var session=res&&res.data&&res.data.session;
   if(err||!session){var m2=friendlyAuthError(err||{},'verify');authFail('a-code-error',m2[0],m2[1]);$('a-code').select();return;}
-  clearInterval(resendTimer);
+  clearInterval(resendTimer);clearPending();
   enterSession(session);
 });
 $('a-resend').addEventListener('click',async function(){
@@ -1574,13 +1733,15 @@ $('a-resend').addEventListener('click',async function(){
   var err=null;
   try{err=await sendCode(authEmail);}catch(x){err=x||{};}
   if(err){var m3=friendlyAuthError(err,'send');authFail('a-code-error',m3[0],m3[1]);return;}
+  savePending(authEmail);
   toast(pt('New code sent.','Código nuevo enviado.'));startResendWait();$('a-code').focus();
 });
-$('a-change').addEventListener('click',function(){showAuthStep('email');$('a-email').focus();});
+$('a-change').addEventListener('click',function(){clearPending();showAuthStep('email');$('a-email').value=authEmail||lastEmail();$('a-email').focus();});
 
 function enterSession(session){
   var user=session&&session.user;
   if(!user||!user.id){showAuth();return;}
+  recovering=false;clearTimeout(recoverTimer);
   S.uid=user.id;S.email=user.email||'';
   setAuthVisible(false);
   if(store){try{store.stop();}catch(e){}}
@@ -1591,6 +1752,7 @@ async function signOut(){
   Object.keys(paying).forEach(function(id){cancelPay(id,true);});
   try{await writeChain;}catch(e){}
   try{await sb.auth.signOut({scope:'local'});}catch(e){}
+  clearPending();
   showAuth();
 }
 
@@ -1598,19 +1760,62 @@ async function boot(){
   var cfg=window.BILLS_CONFIG||{}, lib=window.supabase;
   if(!cfg.SUPABASE_URL||!cfg.SUPABASE_KEY){startLocal();return;}
   if(!lib||typeof lib.createClient!=='function'){
-    showAuth();authFail('a-error','Can’t reach the sign-in service. Check your connection and reload this page.','No se puede conectar con el servicio de inicio de sesión. Revisa tu conexión y recarga esta página.');return;
+    showAuth();authFail('a-error','Can’t reach the sign-in service. Check your connection and reload this page.','No se puede conectar con el servicio de inicio de sesión. Revise su conexión y recargue esta página.');return;
   }
   try{
     sb=lib.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
   }catch(e){startLocal();return;}
-  sb.auth.onAuthStateChange(function(ev){
-    /* signed out somewhere else, or the login expired: go back to the sign-in screen (deferred, as Supabase asks) */
+  sb.auth.onAuthStateChange(function(ev,sess){
+    /* signed out somewhere else, or the login really expired: go back to the sign-in screen (deferred, as Supabase asks) */
     if(ev==='SIGNED_OUT'){setTimeout(function(){if(S.mode==='db'||S.mode==='loading')showAuth();},0);}
+    else if(sess&&recovering){setTimeout(function(){if(recovering)enterSession(sess);},0);}   /* the login came back by itself while we were waiting */
   });
-  var session=null;
-  try{var r=await sb.auth.getSession();session=r&&r.data&&r.data.session;}catch(e){session=null;}
-  if(session)enterSession(session);else showAuth();
+  window.addEventListener('online',nudgeRecover);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)nudgeRecover();});
+  var got=await readSession();
+  if(got.session){enterSession(got.session);return;}
+  if(hasStoredLogin()&&!definitive(got.err)){
+    /* A login is still saved on this device, so the problem is probably the connection (a phone that has just woken up often has none yet).
+       Keep trying quietly instead of asking the person to sign in again. */
+    recovering=true;recoverTries=0;
+    recoverTimer=setTimeout(recover,1500);
+    return;
+  }
+  if(definitive(got.err)){try{await sb.auth.signOut({scope:'local'});}catch(e){}}   /* make sure nothing stale is left behind */
+  showAuth();
 }
+var recovering=false, recoverTimer=null, recoverTries=0;
+async function readSession(){
+  var session=null, err=null;
+  try{var r=await sb.auth.getSession();session=r&&r.data&&r.data.session;err=r&&r.error;}catch(e){err=e;}
+  return {session:session,err:err};
+}
+/* Supabase keeps the login in this device's storage under sb-<project>-auth-token and removes it only when the server says it is no longer valid. */
+function hasStoredLogin(){
+  try{
+    for(var i=0;i<localStorage.length;i++){
+      var k=localStorage.key(i);
+      if(/^sb-.+-auth-token$/.test(k)){var v=JSON.parse(localStorage.getItem(k)||'null');if(v&&v.refresh_token)return true;}
+    }
+  }catch(e){}
+  return false;
+}
+/* A 4xx answer (other than "slow down" or "timed out") means the server itself refused the login; anything else is a connection problem. */
+function definitive(err){var st=err&&err.status;return typeof st==='number'&&st>=400&&st<500&&st!==408&&st!==429;}
+async function recover(){
+  clearTimeout(recoverTimer);
+  if(!recovering)return;
+  var got=await readSession();
+  if(!recovering)return;
+  if(got.session){enterSession(got.session);return;}
+  if(!hasStoredLogin()||definitive(got.err)){
+    if(definitive(got.err)){try{await sb.auth.signOut({scope:'local'});}catch(e){}}
+    showAuth();return;
+  }
+  recoverTries++;
+  recoverTimer=setTimeout(recover,Math.min(10000,1500*(recoverTries+1)));   /* the library itself waits up to a minute between real attempts, so quick ticks here are cheap */
+}
+function nudgeRecover(){if(recovering){clearTimeout(recoverTimer);recover();}}
 $('auth-icon').innerHTML=CAL_SVG;
 setLocale(detectLang());
 applyStatic();
