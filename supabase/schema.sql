@@ -44,3 +44,41 @@ $$;
 drop trigger if exists docs_touch_updated_at on public.docs;
 create trigger docs_touch_updated_at before update on public.docs
   for each row execute function public.docs_touch_updated_at();
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- "Add from Email" daily limits (used only by the scan-bill Edge Function, which runs as service_role).
+-- Counts reads per person per day so no one person, and not everyone together, can run up the Anthropic bill.
+-- ---------------------------------------------------------------------------------------------------------------------
+create table if not exists public.scan_usage (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  day     date not null default ((now() at time zone 'utc')::date),
+  n       int  not null default 0,
+  primary key (user_id, day)
+);
+alter table public.scan_usage enable row level security;
+revoke all on public.scan_usage from anon, authenticated;
+
+-- Takes one slot for today. Returns false (and counts nothing) when this person or everyone together has hit the daily limit.
+create or replace function public.take_scan_slot(p_user uuid, p_user_limit int, p_global_limit int)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  d date := (now() at time zone 'utc')::date;
+  total int;
+  mine int;
+begin
+  select coalesce(sum(n), 0) into total from public.scan_usage where day = d;
+  if total >= p_global_limit then
+    return false;
+  end if;
+  insert into public.scan_usage as u (user_id, day, n) values (p_user, d, 1)
+  on conflict (user_id, day) do update set n = u.n + 1 where u.n < p_user_limit
+  returning u.n into mine;
+  return mine is not null;
+end;
+$$;
+revoke all on function public.take_scan_slot(uuid, int, int) from public, anon, authenticated;
+grant execute on function public.take_scan_slot(uuid, int, int) to service_role;

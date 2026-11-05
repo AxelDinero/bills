@@ -14,8 +14,8 @@ await db.exec(`
   create schema auth;
   create table auth.users (id uuid primary key);
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  create role anon nologin; create role authenticated nologin;
-  grant usage on schema public, auth to anon, authenticated;
+  create role anon nologin; create role authenticated nologin; create role service_role nologin;
+  grant usage on schema public, auth to anon, authenticated, service_role;
   alter default privileges in schema public grant all on tables to anon, authenticated;
   insert into auth.users values ('${A}'), ('${B}');
 `);
@@ -74,5 +74,34 @@ ok('B’s row survived everything above', x.r.rows[0].n === 1, JSON.stringify(x.
 await db.exec(`delete from auth.users where id = '${B}'`);
 x = await tryq(`select count(*)::int as n from public.docs`);
 ok('deleting an account removes its rows', x.r.rows[0].n === 0, JSON.stringify(x.r.rows));
+
+// ---- "Add from Email" daily limits
+const C = '33333333-3333-3333-3333-333333333333', D = '44444444-4444-4444-4444-444444444444';
+await db.exec(`insert into auth.users values ('${B}'), ('${C}'), ('${D}')`);
+await as(A);
+x = await tryq(`select * from public.scan_usage`);
+ok('a signed-in person cannot read the scan counters', !!x.e, x.e);
+x = await tryq(`insert into public.scan_usage (user_id, day, n) values ('${A}', current_date, 0)`);
+ok('a signed-in person cannot write the scan counters (cannot reset their own limit)', !!x.e, x.e);
+x = await tryq(`select public.take_scan_slot('${A}', 15, 300)`);
+ok('a signed-in person cannot call take_scan_slot', !!x.e, x.e);
+await as(null, 'anon');
+x = await tryq(`select public.take_scan_slot('${A}', 15, 300)`);
+ok('not signed in: cannot call take_scan_slot', !!x.e, x.e);
+x = await tryq(`select * from public.scan_usage`);
+ok('not signed in: cannot read the counters', !!x.e, x.e);
+await as(null, 'service_role');
+const slot = async (u, per, all) => (await db.query(`select public.take_scan_slot('${u}', ${per}, ${all}) as ok`)).rows[0].ok;
+await db.exec('reset role; set role service_role;');
+x = [await slot(C, 2, 100), await slot(C, 2, 100), await slot(C, 2, 100), await slot(D, 2, 100)];
+ok('the server can count: 2 allowed, the 3rd for the same person refused, someone else unaffected', JSON.stringify(x) === '[true,true,false,true]', JSON.stringify(x));
+x = [await slot(A, 2, 3), await slot(A, 2, 4)];
+ok('overall daily limit refuses everyone once reached, and lets people in again when raised', JSON.stringify(x) === '[false,true]', JSON.stringify(x));
+await db.exec('reset role');
+x = await tryq(`select n from public.scan_usage where user_id = '${C}'`);
+ok('refused reads are not counted', x.r.rows[0].n === 2, JSON.stringify(x.r.rows));
+await db.exec(`delete from auth.users where id = '${C}'`);
+x = await tryq(`select count(*)::int as n from public.scan_usage where user_id = '${C}'`);
+ok('deleting an account removes its counters', x.r.rows[0].n === 0);
 
 process.exit(failed ? 1 : 0);

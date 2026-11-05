@@ -13,6 +13,7 @@ const ok = (name, cond, extra) => { console.log((cond ? 'PASS ' : 'FAIL ') + nam
 function makeBackend() {
   const b = {
     rows: [], session: null, codes: {}, log: [], failWrites: false, sendError: null, listeners: [],
+    fnCalls: [], fnReply: { data: { bills: [] }, error: null }, fnGate: null,
     userId: email => 'u_' + email.replace(/[^a-z]/g, ''),
     client() {
       const auth = {
@@ -65,7 +66,15 @@ function makeBackend() {
         }
         return api;
       };
-      return { auth, from };
+      const functions = {
+        invoke: async (name, opts) => {
+          b.fnCalls.push({ name, body: JSON.parse(JSON.stringify(opts.body)), signedIn: !!b.session });
+          if (b.fnGate) await b.fnGate;
+          await sleep(5);
+          return typeof b.fnReply === 'function' ? b.fnReply(opts.body) : b.fnReply;
+        },
+      };
+      return { auth, from, functions };
     },
   };
   return b;
@@ -316,6 +325,158 @@ function open({ backend, configured = true, ls = {}, noLib = false, langs = null
   p.$('content').querySelector('[data-act="examples"]').click();
   ok('J: example bills are created in Spanish', await until(() => /Teléfono/.test(p.$('content').textContent)) && /Alquiler/.test(p.$('content').textContent) && /Estas son cuentas de ejemplo/.test(p.$('content').textContent), p.$('content').textContent.replace(/\s+/g, ' ').slice(0, 300));
   ok('J: nothing English left (examples screen)', !LEFT.test(p.$('content').textContent.replace(/Streaming/g, '')), (p.$('content').textContent.match(LEFT) || [''])[0]);
+  p.close();
+
+  // ---------- K. Add from Email: paste text, Claude (a fake function here) reads it, the person reviews and adds
+  const bK = makeBackend();
+  p = open({ backend: bK });
+  await until(() => !p.$('auth').hidden);
+  ok('K: signed out: no Add from Email button', p.$('scan-btn').hidden);
+  await p.signIn('kim@example.test');
+  p.$('f-uname').value = 'Kim'; p.submit('name-form');
+  await until(() => p.$('title-text').textContent === 'Kim’s Bills');
+  ok('K: signed in: the button is there and says Add from Email', !p.$('scan-btn').hidden && /Add from Email/.test(p.$('scan-btn').textContent));
+  ok('K: bottom bar leaves room for the toast', p.doc.body.classList.contains('two-bar'));
+  const todayK = (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+  const dayK = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const typeText = t => { p.$('scan-text').value = t; p.$('scan-text').dispatchEvent(new p.w.Event('input', { bubbles: true })); };
+  const openScanSheet = () => { p.$('scan-btn').click(); };
+  const resultText = () => p.$('scan-results').textContent.replace(/\s+/g, ' ');
+
+  p.fillBill('Netflix', '15.99', dayK(8));   // a bill she already has
+  await until(() => /Netflix/.test(p.$('content').textContent));
+  openScanSheet();
+  ok('K: sheet opens on the paste screen, nothing to send yet', !p.$('scan-scrim').hidden && !p.$('scan-intro').hidden && p.$('scan-go').disabled);
+  ok('K: has paste box, screenshot and camera buttons; the camera input asks for the back camera', !!p.$('scan-text') && !!p.$('scan-pick') && !!p.$('scan-cam') && p.$('scan-cam-file').getAttribute('capture') === 'environment' && p.$('scan-file').getAttribute('accept') === 'image/*' && p.$('scan-file').multiple);
+  typeText('short');
+  ok('K: too little text keeps Find Bills off', p.$('scan-go').disabled);
+  typeText('Your Acme Electric bill of $94.50 is due on ' + dayK(4) + '. Thanks for being a customer.');
+  ok('K: enough text turns Find Bills on', !p.$('scan-go').disabled);
+  bK.fnReply = { data: { bills: [
+    { kind: 'bill', name: 'Acme Electric', amount: 94.5, date: dayK(4), repeat: 'monthly' },
+    { kind: 'bill', name: 'Netflix', amount: 15.99, date: dayK(8), repeat: 'monthly' },
+    { kind: 'receipt', name: 'Acme Water', amount: 40, date: dayK(-10), repeat: 'monthly' },
+    { kind: 'statement', name: 'Acme Card', amount: null, date: null, repeat: 'monthly' },
+  ] }, error: null };
+  p.$('scan-go').click();
+  ok('K: shows a reading screen while waiting', !p.$('scan-busy').hidden || !p.$('scan-results').hidden);
+  ok('K: results appear', await until(() => !p.$('scan-results').hidden), p.$('scan-error').textContent);
+  const call = bK.fnCalls[0];
+  ok('K: called the scan-bill function as a signed-in person', bK.fnCalls.length === 1 && call.name === 'scan-bill' && call.signedIn);
+  ok('K: sent the pasted text, today’s date and the language, and no pictures', /Acme Electric bill/.test(call.body.text) && call.body.today === todayK && call.body.lang === 'en' && Array.isArray(call.body.images) && call.body.images.length === 0, JSON.stringify(call.body).slice(0, 160));
+  ok('K: says how many bills were found', /Found 4 bills\./.test(p.$('scan-found').textContent), p.$('scan-found').textContent);
+  const boxes = () => [...p.$('scan-list').querySelectorAll('.scan-cb')];
+  ok('K: four rows; the new bill is ticked', p.$('scan-list').children.length === 4 && /Acme Electric/.test(resultText()) && /\$94\.50/.test(resultText()));
+  const rowOf = name => [...p.$('scan-list').children].find(li => li.textContent.includes(name));
+  ok('K: a bill already in the list is flagged and not ticked; the others are ticked', /Already in your list/.test(rowOf('Netflix').textContent) && !rowOf('Netflix').querySelector('.scan-cb').checked && ['Acme Electric', 'Acme Water', 'Acme Card'].every(n => rowOf(n).querySelector('.scan-cb').checked), boxes().map(b => b.checked).join());
+  ok('K: a payment receipt is turned into the next due date with a “check the date” note', /Based on your payment on/.test(resultText()) && /Check the date/.test(resultText()));
+  ok('K: a statement with no date says so', /No due date is shown/.test(resultText()));
+  ok('K: Add button counts the ticked bills', /^Add 3 Bills$/.test(p.$('scan-add').textContent), p.$('scan-add').textContent);
+  boxes().forEach(b => { if (!b.checked) { b.checked = true; } }); p.$('scan-list').dispatchEvent(new p.w.Event('change', { bubbles: true }));
+  ok('K: ticking more updates the count', /^Add 4 Bills$/.test(p.$('scan-add').textContent), p.$('scan-add').textContent);
+  boxes().forEach(b => { b.checked = (b === rowOf('Acme Electric').querySelector('.scan-cb')); }); p.$('scan-list').dispatchEvent(new p.w.Event('change', { bubbles: true }));
+  ok('K: unticking updates the count to one', /^Add 1 Bill$/.test(p.$('scan-add').textContent), p.$('scan-add').textContent);
+  p.$('scan-add').click();
+  ok('K: adding saves the bill to her account and closes the sheet', await until(() => bK.rows.some(r => r.data && r.data.name === 'Acme Electric' && r.data.amount === 94.5 && r.data.due === dayK(4) && r.data.repeat === 'monthly' && r.data.paid === false && r.user_id === 'u_kimexampletest')) && p.$('scan-scrim').hidden);
+  ok('K: toast says how many were added', /Added 1 bill\./.test(p.$('toast').textContent), p.$('toast').textContent);
+  ok('K: the new bill shows in the list', await until(() => /Acme Electric/.test(p.$('content').textContent)));
+  openScanSheet();
+  ok('K: reopening starts clean: the pasted email was not kept', p.$('scan-text').value === '' && !p.$('scan-intro').hidden && p.$('scan-go').disabled);
+  p.$('scan-close').click();
+
+  // errors: each one has a plain message, nothing is added, and Try Again / Back work
+  const errReply = (name, code) => ({ data: null, error: { name, context: { json: async () => ({ error: code }) } } });
+  const cases = [['limit', errReply('FunctionsHttpError', 'limit'), /That.s all for today/], ['busy', errReply('FunctionsHttpError', 'busy'), /Claude is busy/],
+    ['not_configured', errReply('FunctionsHttpError', 'not_configured'), /Not available yet/], ['too_big', errReply('FunctionsHttpError', 'too_big'), /too much to read/],
+    ['unauthorized', errReply('FunctionsHttpError', 'unauthorized'), /sign in again/], ['network', { data: null, error: { name: 'FunctionsFetchError', context: {} } }, /Couldn.t connect/],
+    ['ai_failed', errReply('FunctionsHttpError', 'ai_failed'), /didn.t finish/], ['unreadable error body', { data: null, error: { name: 'FunctionsRelayError', context: { json: async () => { throw new Error('x'); } } } }, /didn.t finish/]];
+  const rowsBefore = bK.rows.length;
+  for (const [label, reply, re] of cases) {
+    openScanSheet(); typeText('A long enough email text about a bill that is due soon.');
+    bK.fnReply = reply; p.$('scan-go').click();
+    ok('K: error “' + label + '” has its own message', await until(() => !p.$('scan-error').hidden) && re.test(p.$('scan-err-title').textContent), p.$('scan-err-title').textContent);
+    if (label === 'limit') {
+      p.$('scan-edit').click();
+      ok('K: Back from an error returns to the paste screen with the text still there', !p.$('scan-intro').hidden && /long enough email/.test(p.$('scan-text').value));
+      p.$('scan-go').click(); await until(() => !p.$('scan-error').hidden);
+      bK.fnReply = { data: { bills: [{ kind: 'bill', name: 'Retry Co', amount: 5, date: dayK(3), repeat: 'none' }] }, error: null };
+      p.$('scan-retry').click();
+      ok('K: Try Again asks again and can succeed', await until(() => !p.$('scan-results').hidden) && /Retry Co/.test(resultText()));
+    }
+    p.$('scan-close').click();
+  }
+  ok('K: none of the errors added anything', bK.rows.length === rowsBefore);
+
+  // nothing found
+  openScanSheet(); typeText('Hi Kim, lunch on Friday? Let me know what works for you.');
+  bK.fnReply = { data: { bills: [] }, error: null }; p.$('scan-go').click();
+  ok('K: no bills => says so, no Add button', await until(() => !p.$('scan-results').hidden) && /No bills found\./.test(p.$('scan-found').textContent) && /didn.t see a bill/.test(p.$('scan-help').textContent) && p.$('scan-add').hidden && p.$('scan-list').hidden);
+  p.$('scan-again').click();
+  ok('K: Back returns to the paste screen with the text', !p.$('scan-intro').hidden && /lunch on Friday/.test(p.$('scan-text').value));
+  bK.fnReply = { data: { bills: [{ kind: 'bill', name: 'Old Bill', amount: 10, date: dayK(-90), repeat: 'none' }] }, error: null }; p.$('scan-go').click();
+  ok('K: a bill with a long-past date is not offered, and the message explains', await until(() => !p.$('scan-results').hidden) && /No bills found/.test(p.$('scan-found').textContent) && /older than about six weeks/.test(p.$('scan-help').textContent), p.$('scan-help').textContent);
+  p.$('scan-close').click();
+
+  // Stop while waiting: a late answer is ignored
+  openScanSheet(); typeText('Another email about a bill that is due in two weeks.');
+  let release; bK.fnGate = new Promise(r => { release = r; });
+  bK.fnReply = { data: { bills: [{ kind: 'bill', name: 'Late Co', amount: 1, date: dayK(5), repeat: 'none' }] }, error: null };
+  p.$('scan-go').click();
+  ok('K: reading screen is up while waiting', await until(() => !p.$('scan-busy').hidden));
+  p.$('scan-stop').click();
+  ok('K: Stop goes back to the paste screen', !p.$('scan-intro').hidden && /Another email/.test(p.$('scan-text').value));
+  release(); bK.fnGate = null; await sleep(60);
+  ok('K: the late answer does not pop up', p.$('scan-results').hidden && p.$('scan-error').hidden && !p.$('scan-intro').hidden);
+  p.$('scan-close').click();
+
+  // double tap on Find Bills makes one call; a stray tap outside does not throw away the text
+  bK.fnCalls.length = 0; openScanSheet(); typeText('Yet another bill email, due on the first of the month.');
+  bK.fnReply = { data: { bills: [] }, error: null };
+  p.$('scan-go').click(); p.$('scan-go').click();
+  await until(() => !p.$('scan-results').hidden);
+  ok('K: two quick taps ask only once', bK.fnCalls.length === 1, bK.fnCalls.length);
+  p.$('scan-again').click();
+  p.$('scan-scrim').dispatchEvent(new p.w.MouseEvent('click', { bubbles: true }));
+  ok('K: tapping the dark area does not close the sheet while there is text', !p.$('scan-scrim').hidden);
+  p.$('scan-close').click();
+  ok('K: Close closes it', p.$('scan-scrim').hidden);
+  openScanSheet(); p.$('scan-scrim').dispatchEvent(new p.w.MouseEvent('click', { bubbles: true }));
+  ok('K: with nothing typed, tapping the dark area closes it', p.$('scan-scrim').hidden);
+
+  // pictures that are not pictures
+  openScanSheet();
+  const notPic = new p.w.File(['hello'], 'notes.txt', { type: 'text/plain' });
+  Object.defineProperty(p.$('scan-file'), 'files', { value: [notPic], configurable: true });
+  p.$('scan-file').dispatchEvent(new p.w.Event('change'));
+  ok('K: a non-picture is refused with a message', await until(() => !p.$('scan-input-error').hidden && /isn.t a picture/.test(p.$('scan-input-error').textContent)), p.$('scan-input-error').textContent);
+  p.$('scan-close').click();
+
+  // Spanish
+  p.doc.querySelector('.date-row .lang-btn').click();
+  ok('K: Spanish: the button says Agregar desde correo', /Agregar desde correo/.test(p.$('scan-btn').textContent));
+  openScanSheet();
+  ok('K: Spanish: sheet text', /Agregar desde correo/.test(p.$('scan-title').textContent) && /Elegir captura/.test(p.$('scan-pick').textContent) && /Tomar foto/.test(p.$('scan-cam').textContent) && /Buscar cuentas/.test(p.$('scan-go').textContent) && /^Pega aquí/.test(p.$('scan-text').getAttribute('placeholder')) && /Texto del correo/.test(p.doc.querySelector('label[for="scan-text"]').textContent));
+  ok('K: Spanish: nothing English left on the paste screen', !/Paste|Choose|Take a|Find Bills|doesn.t keep|Close/.test(p.$('scan-sheet').textContent.replace(/\s+/g, ' ')), p.$('scan-sheet').textContent.replace(/\s+/g, ' ').slice(0, 300));
+  typeText('Su recibo de Acme Electric por $94.50 vence el ' + dayK(4) + '.');
+  bK.fnCalls.length = 0;
+  bK.fnReply = { data: { bills: [{ kind: 'bill', name: 'Acme Electric', amount: 94.5, date: dayK(4), repeat: 'monthly' }, { kind: 'receipt', name: 'Acme Water', amount: 40, date: dayK(-10), repeat: 'monthly' }, { kind: 'bill', name: 'Acme Gas', amount: 30, date: dayK(5), repeat: 'none' }] }, error: null };
+  p.$('scan-go').click();
+  await until(() => !p.$('scan-results').hidden);
+  ok('K: Spanish: the function is told the language', bK.fnCalls[0].body.lang === 'es');
+  ok('K: Spanish: results in Spanish', /Se encontraron 3 cuentas\./.test(p.$('scan-found').textContent) && /Ya está en tu lista/.test(resultText()) && /Vence /.test(resultText()) && /Mensual/.test(resultText()) && /Según tu pago del/.test(resultText()) && /Revisa la fecha/.test(resultText()) && /^Agregar 2 cuentas$/.test(p.$('scan-add').textContent), p.$('scan-found').textContent + ' | ' + p.$('scan-add').textContent);
+  ok('K: Spanish: nothing English left on the results screen', !/\b(Due|Monthly|Found|Based on|Check the date|Add \d|Back)\b/.test(p.$('scan-results').textContent.replace(/\s+/g, ' ').replace(/Acme [A-Za-z]+/g, '')), p.$('scan-results').textContent.replace(/\s+/g, ' ').slice(0, 300));
+  p.$('scan-add').click();
+  ok('K: Spanish: toast', await until(() => /Se agregaron 2 cuentas\./.test(p.$('toast').textContent)), p.$('toast').textContent);
+  openScanSheet(); typeText('Texto de otro correo con una cuenta por pagar pronto.');
+  bK.fnReply = errReply('FunctionsHttpError', 'limit'); p.$('scan-go').click();
+  ok('K: Spanish: error text', await until(() => !p.$('scan-error').hidden) && /Eso es todo por hoy/.test(p.$('scan-err-title').textContent) && /Inténtalo mañana/.test(p.$('scan-err-body').textContent) && /Intentar de nuevo/.test(p.$('scan-retry').textContent));
+  p.$('scan-close').click();
+  p.close();
+
+  // not available when the site has no Supabase (this-phone-only mode) or while loading
+  p = open({ backend: makeBackend(), configured: false });
+  await until(() => p.$('title-text').textContent);
+  ok('K: this-phone-only mode: no Add from Email (it needs an account)', p.$('scan-btn').hidden && !p.doc.body.classList.contains('two-bar'));
   p.close();
 
   process.exit(failed ? 1 : 0);

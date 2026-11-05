@@ -37,6 +37,7 @@ const srv = http.createServer((q, r) => {
         user: { id: 'u1', aud: 'authenticated', role: 'authenticated', email: 'maria@example.test' } });
     }
     if (u.pathname === '/auth/v1/logout') return route.fulfill({ status: 204, headers: cors });
+    if (u.pathname === '/functions/v1/scan-bill' && m === 'POST') { const d = new Date(); d.setDate(d.getDate() + 10); const due = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); return json({ bills: [{ kind: 'bill', name: 'Acme Power', amount: 94.5, date: due, repeat: 'monthly' }] }); }
     if (u.pathname === '/rest/v1/docs') {
       if (m === 'GET') return json(rows.map(r => ({ id: r.id, data: r.data })));
       if (m === 'POST') {
@@ -78,6 +79,20 @@ const srv = http.createServer((q, r) => {
   const up = reqs.filter(r => r.m === 'POST' && r.p.startsWith('/rest/v1/docs')).pop();
   ok('save is an upsert on (user_id,id) using the signed-in session', /on_conflict=user_id%2Cid/.test(up.p) && /^Bearer e30\./.test(up.auth) && up.apikey.startsWith('sb_publishable_'), up.p + ' | ' + (up.auth || '').slice(0, 14));
   ok('the session token, not the publishable key, is used for data', reqs.filter(r => r.p.startsWith('/rest/v1/')).every(r => /^Bearer e30\./.test(r.auth)));
+
+  // Add from Email, through the real library: who is calling, with which headers, and what gets saved
+  await page.click('#scan-btn');
+  await page.fill('#scan-text', 'Your Acme Power bill of $94.50 is ready. Pay by the due date to avoid a late fee.');
+  await page.click('#scan-go');
+  await page.waitForSelector('#scan-results:not([hidden])');
+  const fn = reqs.find(r => r.p === '/functions/v1/scan-bill' && r.m === 'POST');
+  ok('scan call goes to the scan-bill function with the signed-in session token and the publishable key', !!fn && /^Bearer e30\./.test(fn.auth) && fn.apikey.startsWith('sb_publishable_'), fn && (fn.auth || '').slice(0, 14));
+  const fb = fn && JSON.parse(fn.body);
+  ok('scan request carries the text, today’s date and the language, and nothing else', !!fb && /Acme Power bill/.test(fb.text) && /^\d{4}-\d{2}-\d{2}$/.test(fb.today) && fb.lang === 'en' && Array.isArray(fb.images) && Object.keys(fb).sort().join() === 'images,lang,text,today', fn && Object.keys(fb).join());
+  await page.click('#scan-add');
+  await page.waitForFunction(() => document.body.textContent.includes('Acme Power'));
+  await page.waitForTimeout(300);
+  ok('the bill found by the scan is saved to her account', rows.some(r => r.data && r.data.name === 'Acme Power' && r.data.amount === 94.5 && r.user_id === 'u1'), JSON.stringify(rows.map(r => r.id)));
 
   await page.reload();
   await page.waitForFunction(() => document.body.textContent.includes('Rent'));
